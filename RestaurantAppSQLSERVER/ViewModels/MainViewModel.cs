@@ -51,6 +51,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
         {
             // CurrentViewModel = new RegisterViewModel(_userService, this);
             // We'll create RegisterViewModel in a later step.
+            CurrentViewModel = new RegisterViewModel(_userService, this);
         }
 
         public void SetLoggedInUser(User user)

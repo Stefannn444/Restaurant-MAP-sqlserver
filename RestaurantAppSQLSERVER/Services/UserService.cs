@@ -38,7 +38,7 @@ namespace RestaurantAppSQLSERVER.Services
 
         // Aici vei adăuga metode pentru înregistrare, etc.
         // Exemplu schelet pentru metoda de înregistrare:
-        /*
+        
         public async Task<bool> RegisterUserAsync(User newUser)
         {
             using (var context = _dbContextFactory.CreateDbContext())
@@ -49,13 +49,13 @@ namespace RestaurantAppSQLSERVER.Services
                 {
                     return false; // Utilizatorul există deja
                 }
-
+                newUser.Rol = UserRole.Client;
                 // Adaugă utilizatorul nou în baza de date
                 context.Users.Add(newUser);
                 await context.SaveChangesAsync();
                 return true; // Înregistrare reușită
             }
         }
-        */
+        
     }
 }
