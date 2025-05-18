@@ -18,6 +18,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
         private readonly CategoryService _categoryService; // Serviciul pentru Categorii
         private readonly AllergenService _allergenService; // Serviciul pentru Alergeni
         private readonly MenuItemService _menuItemService; // Serviciul principal pentru MenuItem (Meniu)
+        private readonly OrderService _orderService; // Serviciul pentru Comenzi
 
 
         public ViewModelBase CurrentViewModel
@@ -41,6 +42,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
             _categoryService = new CategoryService(_dbContextFactory); // Initializeaza CategoryService
             _allergenService = new AllergenService(_dbContextFactory); // Initializeaza AllergenService
             _menuItemService = new MenuItemService(_dbContextFactory); // Initializeaza MenuItemService (Serviciul principal pentru Meniu)
+            _orderService = new OrderService(_dbContextFactory); // Initializeaza OrderService
 
 
             // Inițial, arată View-ul de Login
@@ -67,7 +69,8 @@ namespace RestaurantAppSQLSERVER.ViewModels
             if (LoggedInUser != null && LoggedInUser.Rol == UserRole.Angajat)
             {
                 // Initializeaza EmployeeDashboardViewModel cu TOATE serviciile necesare
-                CurrentViewModel = new EmployeeDashboardViewModel(_dishService, _categoryService, _allergenService, _menuItemService, this /*, other services */); // Trece MenuItemService
+                // FIX: Adauga 'this' ca ultim argument pentru a trece referinta la MainViewModel
+                CurrentViewModel = new EmployeeDashboardViewModel(_dishService, _categoryService, _allergenService, _menuItemService, _orderService, this /*, other services */);
             }
             else
             {

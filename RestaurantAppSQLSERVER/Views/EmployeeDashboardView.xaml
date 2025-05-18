@@ -55,7 +55,8 @@
                 <Button Content="Categorii" Command="{Binding ShowCategoriesCrudCommand}" Margin="0,0,0,5" Style="{StaticResource MenuButtonStyle}"/>
                 <Button Content="Alergeni" Command="{Binding ShowAllergensCrudCommand}" Margin="0,0,0,5" Style="{StaticResource MenuButtonStyle}"/>
                 <Button Content="Meniuri" Command="{Binding ShowMenusCrudCommand}" Margin="0,0,0,5" Style="{StaticResource MenuButtonStyle}"/>
-            </StackPanel>
+                <Button Content="Comenzi" Command="{Binding ShowOrdersCommand}" Margin="0,0,0,5" Style="{StaticResource MenuButtonStyle}"/>
+</StackPanel>
         </Border>
 
         <ContentControl Grid.Column="1" Content="{Binding CurrentCrudViewModel}" Margin="10"/>

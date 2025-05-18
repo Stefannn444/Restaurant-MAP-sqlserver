@@ -4,9 +4,13 @@
              xmlns:local="clr-namespace:RestaurantAppSQLSERVER"
              xmlns:vm="clr-namespace:RestaurantAppSQLSERVER.ViewModels"
              xmlns:views="clr-namespace:RestaurantAppSQLSERVER.Views"
+             xmlns:conv="clr-namespace:RestaurantAppSQLSERVER.Converters"
              StartupUri="MainWindow.xaml">
 	<Application.Resources>
 		<BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+
+		<conv:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
+
 
 		<DataTemplate DataType="{x:Type vm:LoginViewModel}">
 			<views:LoginView/>
@@ -35,6 +39,11 @@
 		<DataTemplate DataType="{x:Type vm:MenuCrudViewModel}">
 			<views:MenuCrudView/>
 		</DataTemplate>
+
+		<DataTemplate DataType="{x:Type vm:OrderEmployeeViewModel}">
+			<views:OrderEmployeeView/>
+		</DataTemplate>
+
 
 	</Application.Resources>
 </Application>
