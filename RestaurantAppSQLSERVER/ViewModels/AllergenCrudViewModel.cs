@@ -148,6 +148,8 @@ namespace RestaurantAppSQLSERVER.ViewModels
             CancelEditCommand = new RelayCommand(ExecuteCancelEdit);
 
             // Initializeaza AllergenName cu un string gol
+            Task.Run(async () => await ExecuteLoadAllergens()); // Poti incarca si lista de preparate aici
+
             AllergenName = string.Empty;
         }
 

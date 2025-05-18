@@ -259,7 +259,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
 
 
             // Incarca datele la initializarea ViewModel-ului
-            // Task.Run(async () => await ExecuteLoadMenuItems()); // Poti incarca si lista de meniuri aici
+             Task.Run(async () => await ExecuteLoadMenuItems()); // Poti incarca si lista de meniuri aici
             Task.Run(async () => await LoadAvailableDishes()); // Incarca preparatele disponibile
             Task.Run(async () => await LoadAvailableCategories()); // Incarca categoriile disponibile
         }

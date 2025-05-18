@@ -305,7 +305,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
             DishDescription = string.Empty;
 
             // Incarca datele la initializarea ViewModel-ului (optional)
-            // Task.Run(async () => await ExecuteLoadDishes()); // Poti incarca si lista de preparate aici
+            Task.Run(async () => await ExecuteLoadDishes()); // Poti incarca si lista de preparate aici
             Task.Run(async () => await LoadAvailableCategories()); // Incarca categoriile disponibile -- DECOMENATAT
             Task.Run(async () => await LoadAvailableAllergens()); // Incarca alergenii disponibili -- DECOMENATAT
         }

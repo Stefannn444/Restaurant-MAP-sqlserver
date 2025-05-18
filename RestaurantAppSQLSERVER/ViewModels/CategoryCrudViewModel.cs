@@ -173,7 +173,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
             CategoryDescription = string.Empty;
 
             // Incarca datele la initializarea ViewModel-ului (optional)
-            // Task.Run(async () => await ExecuteLoadCategories());
+             Task.Run(async () => await ExecuteLoadCategories());
         }
 
         // --- Metode pentru Command-uri ---
