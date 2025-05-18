@@ -1,0 +1,65 @@
+﻿<UserControl x:Class="RestaurantAppSQLSERVER.Views.AllergenCrudView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:RestaurantAppSQLSERVER.Views"
+             xmlns:vm="clr-namespace:RestaurantAppSQLSERVER.ViewModels"
+             mc:Ignorable="d"
+             d:DesignHeight="600" d:DesignWidth="800">
+    <d:UserControl.DataContext>
+        <vm:AllergenCrudViewModel/>
+    </d:UserControl.DataContext>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" Text="{Binding ErrorMessage}" Foreground="Red" Margin="10,5" TextWrapping="Wrap"/>
+        <TextBlock Grid.Row="0" Text="{Binding SuccessMessage}" Foreground="Green" Margin="10,5" TextWrapping="Wrap"/>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="10">
+            <Button Content="Incarca Alergeni" Command="{Binding LoadAllergensCommand}" Margin="0,0,10,0"/>
+            <Button Content="Adauga Alergen Nou" Command="{Binding AddNewAllergenCommand}" Margin="0,0,10,0"/>
+            <Button Content="Editeaza Alergen Selectat" Command="{Binding EditAllergenCommand}" Margin="0,0,10,0"/>
+            <Button Content="Sterge Alergen Selectat" Command="{Binding DeleteAllergenCommand}" Margin="0,0,10,0"/>
+        </StackPanel>
+        <DataGrid Grid.Row="2"
+                  ItemsSource="{Binding Allergens}"
+                  SelectedItem="{Binding SelectedAllergen}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  Margin="10">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Nume" Binding="{Binding Name}" Width="*"/>
+            </DataGrid.Columns>
+        </DataGrid>
+        <Border Grid.Row="3" Margin="10" Padding="10" BorderBrush="Gray" BorderThickness="1" CornerRadius="5"
+                Visibility="{Binding IsEditing, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel>
+                <TextBlock Text="Adaugare/Editare Alergen" FontSize="18" FontWeight="Bold" Margin="0,0,0,10"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Label Grid.Row="0" Grid.Column="0" Content="Nume:"/>
+                    <!-- Updated binding to use AllergenName instead of CurrentAllergenForEdit.Name -->
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding AllergenName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,5"/>
+                    <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                        <Button Content="Salveaza" Command="{Binding SaveAllergenCommand}" Margin="0,0,10,0"/>
+                        <Button Content="Anuleaza" Command="{Binding CancelEditCommand}"/>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
+    </Grid>
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    </UserControl.Resources>
+</UserControl>
