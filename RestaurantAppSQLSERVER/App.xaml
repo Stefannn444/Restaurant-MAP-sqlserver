@@ -32,5 +32,9 @@
 			<views:DishCrudView/>
 		</DataTemplate>
 
+		<DataTemplate DataType="{x:Type vm:MenuCrudViewModel}">
+			<views:MenuCrudView/>
+		</DataTemplate>
+
 	</Application.Resources>
 </Application>

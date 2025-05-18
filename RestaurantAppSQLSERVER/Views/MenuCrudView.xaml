@@ -1,0 +1,105 @@
+﻿<UserControl x:Class="RestaurantAppSQLSERVER.Views.MenuCrudView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:RestaurantAppSQLSERVER.Views"
+             xmlns:vm="clr-namespace:RestaurantAppSQLSERVER.ViewModels"
+             xmlns:wrappers="clr-namespace:RestaurantAppSQLSERVER.Models.Wrappers"
+             mc:Ignorable="d"
+             d:DesignHeight="700" d:DesignWidth="1000">
+
+    <d:UserControl.DataContext>
+        <vm:MenuCrudViewModel/>
+    </d:UserControl.DataContext>
+
+    <UserControl.Resources>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="{Binding ErrorMessage}" Foreground="Red" Margin="10,5" TextWrapping="Wrap"/>
+        <TextBlock Grid.Row="0" Text="{Binding SuccessMessage}" Foreground="Green" Margin="10,5" TextWrapping="Wrap"/>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="10">
+            <Button Content="Incarca Meniuri" Command="{Binding LoadMenuItemsCommand}" Margin="0,0,10,0"/>
+            <Button Content="Adauga Meniu Nou" Command="{Binding AddNewMenuItemCommand}" Margin="0,0,10,0"/>
+            <Button Content="Editeaza Meniu Selectat" Command="{Binding EditMenuItemCommand}" Margin="0,0,10,0"/>
+            <Button Content="Sterge Meniu Selectat" Command="{Binding DeleteMenuItemCommand}" Margin="0,0,10,0"/>
+        </StackPanel>
+
+        <DataGrid Grid.Row="2"
+                  ItemsSource="{Binding MenuItems}"
+                  SelectedItem="{Binding SelectedMenuItem}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  Margin="10">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="Auto"/>
+                <DataGridTextColumn Header="Nume" Binding="{Binding Name}" Width="*"/>
+                <DataGridTextColumn Header="Pret" Binding="{Binding Price}" Width="Auto"/>
+                <DataGridTextColumn Header="Categorie" Binding="{Binding Category.Name}" Width="Auto"/>
+                <DataGridTextColumn Header="Cale Foto" Binding="{Binding PhotoPath}" Width="*"/>
+
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Border Grid.Row="3" Margin="10" Padding="10" BorderBrush="Gray" BorderThickness="1" CornerRadius="5"
+                Visibility="{Binding IsEditing, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel>
+                <TextBlock Text="Adaugare/Editare Meniu" FontSize="18" FontWeight="Bold" Margin="0,0,0,10"/>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Label Grid.Row="0" Grid.Column="0" Content="Nume:"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding MenuItemName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,5"/>
+
+                    <Label Grid.Row="1" Grid.Column="0" Content="Pret:"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MenuItemPrice, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,5"/>
+
+                    <Label Grid.Row="2" Grid.Column="0" Content="Categorie:"/>
+                    <ComboBox Grid.Row="2" Grid.Column="1"
+                              ItemsSource="{Binding AvailableCategories}"
+                              DisplayMemberPath="Name"
+                              SelectedValuePath="Id"
+                              SelectedValue="{Binding MenuItemCategoryId, UpdateSourceTrigger=PropertyChanged}"
+                              Margin="0,0,0,5"/>
+
+                    <Label Grid.Row="3" Grid.Column="0" Content="Cale Foto:"/>
+                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding PhotoPath, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,5"/>
+                    <Label Grid.Row="4" Grid.Column="0" Content="Preparate:"/>
+                    <ListBox Grid.Row="4" Grid.Column="1" ItemsSource="{Binding SelectableDishes}" Height="150" Margin="0,0,0,5">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="{x:Type wrappers:SelectableDishForMenu}">
+                                <CheckBox Content="{Binding Dish.Name}" IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+
+                    <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                        <Button Content="Salveaza" Command="{Binding SaveMenuItemCommand}" Margin="0,0,10,0"/>
+                        <Button Content="Anuleaza" Command="{Binding CancelEditCommand}"/>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

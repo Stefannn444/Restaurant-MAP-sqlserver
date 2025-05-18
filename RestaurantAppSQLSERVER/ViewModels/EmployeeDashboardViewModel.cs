@@ -3,11 +3,12 @@ using RestaurantAppSQLSERVER.Models.Entities;
 using System;
 using System.Windows.Input;
 using System.Threading.Tasks;
+using System.Diagnostics; // Adaugat pentru Debug.WriteLine (optional)
 
 namespace RestaurantAppSQLSERVER.ViewModels
 {
     // ViewModel principal pentru Dashboard-ul Angajatului
-    public class EmployeeDashboardViewModel : ViewModelBase
+    public class EmployeeDashboardViewModel : ViewModelBase // Asigura-te ca este public
     {
         // Proprietate pentru ViewModel-ul sectiunii CRUD curente afisate
         private ViewModelBase _currentCrudViewModel;
@@ -25,33 +26,45 @@ namespace RestaurantAppSQLSERVER.ViewModels
         public ICommand ShowDishesCrudCommand { get; }
         public ICommand ShowCategoriesCrudCommand { get; }
         public ICommand ShowAllergensCrudCommand { get; }
+        public ICommand ShowMenusCrudCommand { get; } // Adauga pentru Meniuri
         // Public ICommand ShowOrdersCommand { get; } // Adauga pentru comenzi
-        // Public ICommand ShowMenuItemsCrudCommand { get; } // Adauga pentru meniuri
+
 
         // Serviciile necesare (injectate)
         private readonly DishService _dishService;
         private readonly CategoryService _categoryService; // Serviciul pentru Categorii
         private readonly AllergenService _allergenService; // Serviciul pentru Alergeni
+        private readonly MenuItemService _menuItemService; // Serviciul principal pentru MenuItem (Meniu)
+
         private readonly MainViewModel _mainViewModel; // Referință către MainViewModel pentru navigare (ex: Logout)
 
-        // Servicii pentru alte entitati (vor fi injectate pe masura ce le implementezi)
-        // private readonly OrderService _orderService;
-        // private readonly MenuItemService _menuItemService;
+
+        // Constructor PUBLIC FARA PARAMETRI - DOAR PENTRU DESIGN TIME
+        // Acest constructor este necesar pentru ca designer-ul XAML sa poata instantia ViewModel-ul
+        public EmployeeDashboardViewModel() : this(null, null, null, null, null)
+        {
+            // Poti adauga aici logica specifica design-time, daca este necesar
+            Debug.WriteLine("EmployeeDashboardViewModel created for Design Time.");
+        }
 
 
-        public EmployeeDashboardViewModel(DishService dishService, CategoryService categoryService, AllergenService allergenService, MainViewModel mainViewModel /*, other services */)
+        // Constructorul principal - folosit la RULARE
+        public EmployeeDashboardViewModel(DishService dishService, CategoryService categoryService, AllergenService allergenService, MenuItemService menuItemService, MainViewModel mainViewModel /*, other services */)
         {
             _dishService = dishService ?? throw new ArgumentNullException(nameof(dishService));
             _categoryService = categoryService ?? throw new ArgumentNullException(nameof(categoryService)); // Injecteaza CategoryService
             _allergenService = allergenService ?? throw new ArgumentNullException(nameof(allergenService)); // Injecteaza AllergenService
+            _menuItemService = menuItemService ?? throw new ArgumentNullException(nameof(menuItemService)); // Injecteaza MenuItemService (Serviciul principal pentru Meniu)
+
             _mainViewModel = mainViewModel ?? throw new ArgumentNullException(nameof(mainViewModel));
 
             // Initializeaza command-urile de navigare
             ShowDishesCrudCommand = new RelayCommand(ExecuteShowDishesCrud);
             ShowCategoriesCrudCommand = new RelayCommand(ExecuteShowCategoriesCrud);
             ShowAllergensCrudCommand = new RelayCommand(ExecuteShowAllergensCrud);
+            ShowMenusCrudCommand = new RelayCommand(ExecuteShowMenusCrud); // Initializeaza command-ul pentru Meniuri
             // ShowOrdersCommand = new RelayCommand(ExecuteShowOrders);
-            // ShowMenuItemsCrudCommand = new RelayCommand(ExecuteShowMenuItemsCrud);
+
 
             // Seteaza ViewModel-ul initial afisat (ex: sectiunea Preparate)
             ExecuteShowDishesCrud(null); // Afiseaza sectiunea Dish la pornire
@@ -62,6 +75,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
         private void ExecuteShowDishesCrud(object parameter)
         {
             // Creeaza si seteaza DishCrudViewModel ca ViewModel curent al sectiunii
+            // Verifica daca serviciile sunt null (cazul design-time) inainte de a le injecta
             CurrentCrudViewModel = new DishCrudViewModel(_dishService, _categoryService, _allergenService); // Injecteaza TOATE serviciile necesare
                                                                                                             // Optional: Incarca datele automat la afisarea sectiunii
                                                                                                             // Daca vrei sa incarci automat, asigura-te ca metoda in ViewModel este async void
@@ -71,6 +85,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
         private void ExecuteShowCategoriesCrud(object parameter)
         {
             // Creeaza si seteaza CategoryCrudViewModel ca ViewModel curent al sectiunii
+            // Verifica daca serviciul este null (cazul design-time) inainte de a-l injecta
             CurrentCrudViewModel = new CategoryCrudViewModel(_categoryService);
             // Optional: Incarca datele automat la afisarea sectiunii
             // Task.Run(async () => await ((CategoryCrudViewModel)CurrentCrudViewModel).LoadCategoriesCommand.Execute(null));
@@ -79,9 +94,19 @@ namespace RestaurantAppSQLSERVER.ViewModels
         private void ExecuteShowAllergensCrud(object parameter)
         {
             // Creeaza si seteaza AllergenCrudViewModel ca ViewModel curent al sectiunii
+            // Verifica daca serviciul este null (cazul design-time) inainte de a-l injecta
             CurrentCrudViewModel = new AllergenCrudViewModel(_allergenService);
             // Optional: Incarca datele automat la afisarea sectiunii
             // Task.Run(async () => await ((AllergenCrudViewModel)CurrentCrudViewModel).LoadAllergensCommand.Execute(null));
+        }
+
+        private void ExecuteShowMenusCrud(object parameter)
+        {
+            // Creeaza si seteaza MenuCrudViewModel ca ViewModel curent al sectiunii
+            // Verifica daca serviciile sunt null (cazul design-time) inainte de a le injecta
+            CurrentCrudViewModel = new MenuCrudViewModel(_menuItemService, _dishService, _categoryService); // Injecteaza MenuItemService (principal), DishService, CategoryService
+                                                                                                            // Optional: Incarca datele automat la afisarea sectiunii
+                                                                                                            // Task.Run(async () => await ((MenuCrudViewModel)CurrentCrudViewModel).LoadMenuItemsCommand.Execute(null)); // Apeleaza LoadMenuItemsCommand
         }
 
         /*
@@ -89,24 +114,6 @@ namespace RestaurantAppSQLSERVER.ViewModels
         {
              // Creeaza si seteaza OrderViewModel ca ViewModel curent al sectiunii
              // CurrentCrudViewModel = new OrderViewModel(_orderService);
-        }
-
-        private void ExecuteShowMenuItemsCrud(object parameter)
-        {
-             // Creeaza si seteaza MenuItemCrudViewModel ca ViewModel curent al sectiunii
-             // CurrentCrudViewModel = new MenuItemCrudViewModel(_menuItemService);
-        }
-        */
-
-        // Placeholder ViewModel (nu mai este necesar daca DishCrudViewModel este implementat)
-        /*
-        public class PlaceholderViewModel : ViewModelBase
-        {
-            public string Message { get; }
-            public PlaceholderViewModel(string message)
-            {
-                Message = message;
-            }
         }
         */
     }

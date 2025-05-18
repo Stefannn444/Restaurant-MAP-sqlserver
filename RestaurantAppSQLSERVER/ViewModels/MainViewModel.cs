@@ -15,8 +15,10 @@ namespace RestaurantAppSQLSERVER.ViewModels
         private readonly UserService _userService;
         private readonly DbContextFactory _dbContextFactory;
         private readonly DishService _dishService;
-        private readonly CategoryService _categoryService; // Adauga serviciul pentru Categorii
-        private readonly AllergenService _allergenService; // Adauga serviciul pentru Alergeni
+        private readonly CategoryService _categoryService; // Serviciul pentru Categorii
+        private readonly AllergenService _allergenService; // Serviciul pentru Alergeni
+        private readonly MenuItemService _menuItemService; // Serviciul principal pentru MenuItem (Meniu)
+
 
         public ViewModelBase CurrentViewModel
         {
@@ -38,6 +40,8 @@ namespace RestaurantAppSQLSERVER.ViewModels
             _dishService = new DishService(_dbContextFactory);
             _categoryService = new CategoryService(_dbContextFactory); // Initializeaza CategoryService
             _allergenService = new AllergenService(_dbContextFactory); // Initializeaza AllergenService
+            _menuItemService = new MenuItemService(_dbContextFactory); // Initializeaza MenuItemService (Serviciul principal pentru Meniu)
+
 
             // Inițial, arată View-ul de Login
             ShowLoginView();
@@ -50,7 +54,10 @@ namespace RestaurantAppSQLSERVER.ViewModels
 
         public void ShowRegisterView()
         {
-            CurrentViewModel = new RegisterViewModel(_userService, this);
+            // Va trebui să implementezi RegisterViewModel și să-l instanțiezi aici
+            // CurrentViewModel = new RegisterViewModel(_userService, this);
+            // Placeholder temporar:
+            // CurrentViewModel = new PlaceholderViewModel("Register View"); // Creează o clasă PlaceholderViewModel dacă vrei să testezi navigarea
         }
 
         // Metoda pentru a arata Dashboard-ul Angajatului
@@ -60,7 +67,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
             if (LoggedInUser != null && LoggedInUser.Rol == UserRole.Angajat)
             {
                 // Initializeaza EmployeeDashboardViewModel cu TOATE serviciile necesare
-                CurrentViewModel = new EmployeeDashboardViewModel(_dishService, _categoryService, _allergenService, this /*, other services */);
+                CurrentViewModel = new EmployeeDashboardViewModel(_dishService, _categoryService, _allergenService, _menuItemService, this /*, other services */); // Trece MenuItemService
             }
             else
             {
