@@ -41,6 +41,7 @@ namespace RestaurantAppSQLSERVER.Services
 
                 context.Categories.Add(category);
                 await context.SaveChangesAsync();
+                // Debug.WriteLine($"Categoria '{category.Name}' adaugata cu ID: {category.Id}"); // Optional
             }
         }
 
@@ -56,11 +57,12 @@ namespace RestaurantAppSQLSERVER.Services
                     throw new InvalidOperationException($"Categoria cu ID-ul {category.Id} nu a fost gasita.");
                 }
 
-                // Actualizeaza proprietatile (sau foloseste context.Entry(category).State = EntityState.Modified;)
+                // Actualizeaza proprietatile
                 existingCategory.Name = category.Name;
                 existingCategory.Description = category.Description;
 
                 await context.SaveChangesAsync();
+                // Debug.WriteLine($"Categoria cu ID: {category.Id} actualizata."); // Optional
             }
         }
 
@@ -85,6 +87,7 @@ namespace RestaurantAppSQLSERVER.Services
 
                     context.Categories.Remove(categoryToDelete);
                     await context.SaveChangesAsync();
+                    // Debug.WriteLine($"Categoria cu ID: {categoryId} stearsa."); // Optional
                 }
             }
         }

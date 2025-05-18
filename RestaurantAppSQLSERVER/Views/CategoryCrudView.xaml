@@ -12,6 +12,9 @@
         <vm:CategoryCrudViewModel/>
     </d:UserControl.DataContext>
 
+    <UserControl.Resources>
+    </UserControl.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -37,7 +40,6 @@
                   IsReadOnly="True"
                   Margin="10">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="Auto"/>
                 <DataGridTextColumn Header="Nume" Binding="{Binding Name}" Width="*"/>
                 <DataGridTextColumn Header="Descriere" Binding="{Binding Description}" Width="*"/>
             </DataGrid.Columns>
@@ -60,10 +62,10 @@
                     </Grid.RowDefinitions>
 
                     <Label Grid.Row="0" Grid.Column="0" Content="Nume:"/>
-                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding CurrentCategoryForEdit.Name, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,5"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding CategoryName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,5"/>
 
                     <Label Grid.Row="1" Grid.Column="0" Content="Descriere:"/>
-                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CurrentCategoryForEdit.Description, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,5" Height="50" AcceptsReturn="True" TextWrapping="Wrap"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CategoryDescription, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,5" Height="50" AcceptsReturn="True" TextWrapping="Wrap"/>
 
                     <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
                         <Button Content="Salveaza" Command="{Binding SaveCategoryCommand}" Margin="0,0,10,0"/>
@@ -73,8 +75,4 @@
             </StackPanel>
         </Border>
     </Grid>
-
-    <UserControl.Resources>
-        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
-    </UserControl.Resources>
 </UserControl>
