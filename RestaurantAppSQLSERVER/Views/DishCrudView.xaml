@@ -1,0 +1,125 @@
+﻿<UserControl x:Class="RestaurantAppSQLSERVER.Views.DishCrudView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:local="clr-namespace:RestaurantAppSQLSERVER.Views"
+             xmlns:vm="clr-namespace:RestaurantAppSQLSERVER.ViewModels"
+             xmlns:wrappers="clr-namespace:RestaurantAppSQLSERVER.Models.Wrappers"
+             mc:Ignorable="d"
+             d:DesignHeight="700" d:DesignWidth="1000">
+
+    <d:UserControl.DataContext>
+        <vm:DishCrudViewModel/>
+    </d:UserControl.DataContext>
+
+    <UserControl.Resources>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="{Binding ErrorMessage}" Foreground="Red" Margin="10,5" TextWrapping="Wrap"/>
+        <TextBlock Grid.Row="0" Text="{Binding SuccessMessage}" Foreground="Green" Margin="10,5" TextWrapping="Wrap"/>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="10">
+            <Button Content="Incarca Preparate" Command="{Binding LoadDishesCommand}" Margin="0,0,10,0"/>
+            <Button Content="Adauga Preparat Nou" Command="{Binding AddNewDishCommand}" Margin="0,0,10,0"/>
+            <Button Content="Editeaza Preparat Selectat" Command="{Binding EditDishCommand}" Margin="0,0,10,0"/>
+            <Button Content="Sterge Preparat Selectat" Command="{Binding DeleteDishCommand}" Margin="0,0,10,0"/>
+        </StackPanel>
+
+        <DataGrid Grid.Row="2"
+                  ItemsSource="{Binding Dishes}"
+                  SelectedItem="{Binding SelectedDish}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  Margin="10">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Nume" Binding="{Binding Name}" Width="*"/>
+                <DataGridTextColumn Header="Pret" Binding="{Binding Price}" Width="Auto"/>
+                <DataGridTextColumn Header="Cantitate (Portie)" Binding="{Binding Quantity}" Width="Auto"/>
+                <DataGridTextColumn Header="Cantitate Totala" Binding="{Binding TotalQuantity}" Width="Auto"/>
+                <DataGridTextColumn Header="Categorie" Binding="{Binding Category.Name}" Width="Auto"/>
+                <DataGridCheckBoxColumn Header="Disponibil" Binding="{Binding IsAvailable}" Width="Auto"/>
+                <DataGridTextColumn Header="Descriere" Binding="{Binding Description}" Width="*"/>
+                <DataGridTextColumn Header="Cale Foto" Binding="{Binding PhotoPath}" Width="*"/>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Border Grid.Row="3" Margin="10" Padding="10" BorderBrush="Gray" BorderThickness="1" CornerRadius="5"
+                Visibility="{Binding IsEditing, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel>
+                <TextBlock Text="Adaugare/Editare Preparat" FontSize="18" FontWeight="Bold" Margin="0,0,0,10"/>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Label Grid.Row="0" Grid.Column="0" Content="Nume:"/>
+                    <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding DishName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,5"/>
+
+                    <Label Grid.Row="1" Grid.Column="0" Content="Pret:"/>
+                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding DishPrice, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,5"/>
+
+                    <Label Grid.Row="2" Grid.Column="0" Content="Cantitate (Portie):"/>
+                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding DishQuantity, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,5"/>
+
+                    <Label Grid.Row="3" Grid.Column="0" Content="Cantitate Totala:"/>
+                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding DishTotalQuantity, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,5"/>
+
+                    <Label Grid.Row="4" Grid.Column="0" Content="Categorie:"/>
+                    <ComboBox Grid.Row="4" Grid.Column="1"
+                              ItemsSource="{Binding AvailableCategories}"
+                              DisplayMemberPath="Name"
+                              SelectedValuePath="Id"
+                              SelectedValue="{Binding DishCategoryId, UpdateSourceTrigger=PropertyChanged}"
+                              Margin="0,0,0,5"/>
+
+                    <Label Grid.Row="5" Grid.Column="0" Content="Cale Foto:"/>
+                    <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding DishPhotoPath, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,5"/>
+
+                    <Label Grid.Row="6" Grid.Column="0" Content="Disponibil:"/>
+                    <CheckBox Grid.Row="6" Grid.Column="1" IsChecked="{Binding DishIsAvailable}" VerticalAlignment="Center" Margin="0,0,0,5"/>
+
+                    <Label Grid.Row="7" Grid.Column="0" Content="Descriere:"/>
+                    <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding DishDescription, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,5" Height="50" AcceptsReturn="True" TextWrapping="Wrap"/>
+
+                    <Label Grid.Row="8" Grid.Column="0" Content="Alergeni:"/>
+                    <ListBox Grid.Row="8" Grid.Column="1" ItemsSource="{Binding SelectableAllergens}" Height="100" Margin="0,0,0,5">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="{x:Type wrappers:SelectableAllergen}">
+                                <CheckBox Content="{Binding Allergen.Name}" IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"/>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+
+                    <StackPanel Grid.Row="9" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                        <Button Content="Salveaza" Command="{Binding SaveDishCommand}" Margin="0,0,10,0"/>
+                        <Button Content="Anuleaza" Command="{Binding CancelEditCommand}"/>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

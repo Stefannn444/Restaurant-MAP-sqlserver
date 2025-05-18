@@ -1,15 +1,12 @@
-﻿using RestaurantAppSQLSERVER.Models.Entities;
-using RestaurantAppSQLSERVER.Services;
+﻿using RestaurantAppSQLSERVER.Services;
+using RestaurantAppSQLSERVER.Models.Entities;
 using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Input;
+using System.Threading.Tasks;
 
 namespace RestaurantAppSQLSERVER.ViewModels
 {
+    // ViewModel principal pentru Dashboard-ul Angajatului
     public class EmployeeDashboardViewModel : ViewModelBase
     {
         // Proprietate pentru ViewModel-ul sectiunii CRUD curente afisate
@@ -57,8 +54,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
             // ShowMenuItemsCrudCommand = new RelayCommand(ExecuteShowMenuItemsCrud);
 
             // Seteaza ViewModel-ul initial afisat (ex: sectiunea Preparate)
-            // ExecuteShowDishesCrud(null); // Poti lasa Dish sau schimba la Categorii/Alergeni
-            ExecuteShowCategoriesCrud(null); // Exemplu: afiseaza Categorii la pornire
+            ExecuteShowDishesCrud(null); // Afiseaza sectiunea Dish la pornire
         }
 
         // --- Metode pentru Command-urile de Navigare ---
@@ -66,9 +62,10 @@ namespace RestaurantAppSQLSERVER.ViewModels
         private void ExecuteShowDishesCrud(object parameter)
         {
             // Creeaza si seteaza DishCrudViewModel ca ViewModel curent al sectiunii
-            // Va trebui sa creezi DishCrudViewModel separat, similar cu Category/Allergen
-            // Placeholder temporar pana creezi DishCrudViewModel
-            //CurrentCrudViewModel = new PlaceholderViewModel("Gestiune Preparate (CRUD)");
+            CurrentCrudViewModel = new DishCrudViewModel(_dishService, _categoryService, _allergenService); // Injecteaza TOATE serviciile necesare
+                                                                                                            // Optional: Incarca datele automat la afisarea sectiunii
+                                                                                                            // Daca vrei sa incarci automat, asigura-te ca metoda in ViewModel este async void
+                                                                                                            // Task.Run(async () => await ((DishCrudViewModel)CurrentCrudViewModel).LoadDishesCommand.Execute(null));
         }
 
         private void ExecuteShowCategoriesCrud(object parameter)
@@ -76,7 +73,6 @@ namespace RestaurantAppSQLSERVER.ViewModels
             // Creeaza si seteaza CategoryCrudViewModel ca ViewModel curent al sectiunii
             CurrentCrudViewModel = new CategoryCrudViewModel(_categoryService);
             // Optional: Incarca datele automat la afisarea sectiunii
-            // Daca vrei sa incarci automat, asigura-te ca metoda in ViewModel este async void
             // Task.Run(async () => await ((CategoryCrudViewModel)CurrentCrudViewModel).LoadCategoriesCommand.Execute(null));
         }
 
@@ -102,8 +98,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
         }
         */
 
-        // Placeholder ViewModel (pentru testare inainte de a crea toate ViewModel-urile CRUD)
-        // Va trebui sa creezi aceasta clasa simpla
+        // Placeholder ViewModel (nu mai este necesar daca DishCrudViewModel este implementat)
         /*
         public class PlaceholderViewModel : ViewModelBase
         {

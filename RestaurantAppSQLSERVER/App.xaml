@@ -28,5 +28,9 @@
 			<views:AllergenCrudView/>
 		</DataTemplate>
 
+		<DataTemplate DataType="{x:Type vm:DishCrudViewModel}">
+			<views:DishCrudView/>
+		</DataTemplate>
+
 	</Application.Resources>
 </Application>
