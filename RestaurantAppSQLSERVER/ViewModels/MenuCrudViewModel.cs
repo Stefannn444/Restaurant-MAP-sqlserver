@@ -8,6 +8,7 @@ using System.Windows.Input; // For ICommand and CommandManager
 using System.Linq;
 using System.Diagnostics;
 using System.Collections.Generic;
+using System.ComponentModel; // Adaugat pentru IPropertyChangedEvent
 
 namespace RestaurantAppSQLSERVER.ViewModels
 {
@@ -45,6 +46,15 @@ namespace RestaurantAppSQLSERVER.ViewModels
             get => _currentMenuItemForEdit;
             set
             {
+                // Daca exista un obiect anterior, dezaboneaza-te de la evenimentele SelectableDishes
+                if (_currentMenuItemForEdit != null && SelectableDishes != null)
+                {
+                    foreach (var selectableDish in SelectableDishes)
+                    {
+                        selectableDish.PropertyChanged -= SelectableDish_PropertyChanged;
+                    }
+                }
+
                 _currentMenuItemForEdit = value;
                 // Actualizeaza proprietatile individuale folosite pentru binding in formular
                 MenuItemName = value?.Name ?? string.Empty;
@@ -53,8 +63,18 @@ namespace RestaurantAppSQLSERVER.ViewModels
                 MenuItemCategoryId = value?.CategoryId ?? 0; // Include CategoryId
                 PhotoPath = value?.PhotoPath ?? string.Empty; // Folosim numele corect PhotoPath
 
-                // Actualizeaza starea de selectie a preparatelor disponibile
+                // Actualizeaza starea de selectie si CANTITATEA preparatelor disponibile
                 UpdateSelectableDishes();
+
+                // Aboneaza-te la evenimentele PropertyChanged pentru noile obiecte SelectableDish
+                if (SelectableDishes != null)
+                {
+                    foreach (var selectableDish in SelectableDishes)
+                    {
+                        selectableDish.PropertyChanged += SelectableDish_PropertyChanged;
+                    }
+                }
+
 
                 OnPropertyChanged(nameof(CurrentMenuItemForEdit));
                 // Notifica CommandManager cand obiectul de editare se schimba
@@ -138,7 +158,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
         }
 
 
-        // Colectie pentru lista de preparate disponibile cu starea de selectie pentru ListBox
+        // Colectie pentru lista de preparate disponibile cu starea de selectie si CANTITATE pentru ListBox
         public ObservableCollection<SelectableDishForMenu> SelectableDishes { get; set; }
 
         // Colectie pentru lista de categorii disponibile pentru ComboBox
@@ -294,10 +314,25 @@ namespace RestaurantAppSQLSERVER.ViewModels
             try
             {
                 var dishes = await _dishService.GetAllDishesAsync();
+
+                // Dezaboneaza-te de la evenimentele obiectelor vechi inainte de a curata colectia
+                if (SelectableDishes != null)
+                {
+                    foreach (var selectableDish in SelectableDishes)
+                    {
+                        selectableDish.PropertyChanged -= SelectableDish_PropertyChanged;
+                    }
+                }
+
                 SelectableDishes.Clear();
                 foreach (var dish in dishes)
                 {
-                    SelectableDishes.Add(new SelectableDishForMenu(dish)); // Creeaza wrapper pentru fiecare preparat
+                    // La incarcarea preparatelor disponibile, le adaugam in lista SelectableDishes
+                    // Initial, IsSelected este false si SelectedQuantity este 0
+                    var selectableDish = new SelectableDishForMenu(dish);
+                    SelectableDishes.Add(selectableDish);
+                    // Aboneaza-te la evenimentul PropertyChanged al fiecarui obiect SelectableDish
+                    selectableDish.PropertyChanged += SelectableDish_PropertyChanged;
                 }
             }
             catch (Exception ex)
@@ -336,7 +371,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
         }
 
 
-        // Metoda pentru a actualiza starea de selectie a preparatelor in ListBox
+        // Metoda pentru a actualiza starea de selectie si CANTITATEA preparatelor in ListBox
         private void UpdateSelectableDishes()
         {
             // Verifica daca avem preparate disponibile si un meniu curent
@@ -346,13 +381,37 @@ namespace RestaurantAppSQLSERVER.ViewModels
             }
 
             // Daca meniul curent are MenuItemDish-uri
-            var currentMenuItemDishDishIds = CurrentMenuItemForEdit.MenuItemDishes?.Select(mid => mid.DishId).ToList() ?? new List<int>(); // Folosim MenuItemDishes si DishId
+            var currentMenuItemDishes = CurrentMenuItemForEdit.MenuItemDishes?.ToList() ?? new List<MenuItemDish>(); // Luam lista de MenuItemDish-uri
 
-            // Itereaza prin preparatele disponibile si seteaza IsSelected
+            // Itereaza prin preparatele disponibile si seteaza IsSelected si SelectedQuantity
             foreach (var selectableDish in SelectableDishes)
             {
-                // Seteaza IsSelected la true daca ID-ul preparatului se gaseste in lista de ID-uri ale MenuItemDish-urilor din meniul curent
-                selectableDish.IsSelected = currentMenuItemDishDishIds.Contains(selectableDish.Dish.Id);
+                // Cauta legatura MenuItemDish pentru preparatul curent in meniul curent
+                var menuItemDish = currentMenuItemDishes.FirstOrDefault(mid => mid.DishId == selectableDish.Dish.Id);
+
+                // Daca s-a gasit o legatura, inseamna ca preparatul este in meniu
+                if (menuItemDish != null)
+                {
+                    selectableDish.IsSelected = true; // Marcheaza ca selectat
+                    selectableDish.SelectedQuantity = menuItemDish.Quantity; // Seteaza cantitatea existenta
+                }
+                else
+                {
+                    // Daca nu s-a gasit o legatura, preparatul nu este in meniu
+                    selectableDish.IsSelected = false; // Marcheaza ca neselectat
+                    selectableDish.SelectedQuantity = 0; // Seteaza cantitatea la 0
+                }
+            }
+        }
+
+        // Handler pentru evenimentul PropertyChanged al obiectelor SelectableDishForMenu
+        private void SelectableDish_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            // Verificam daca proprietatea schimbata este IsSelected sau SelectedQuantity
+            if (e.PropertyName == nameof(SelectableDishForMenu.IsSelected) || e.PropertyName == nameof(SelectableDishForMenu.SelectedQuantity))
+            {
+                // Daca una dintre aceste proprietati s-a schimbat, re-evalueaza starea butonului Save
+                ((RelayCommand)SaveMenuItemCommand).RaiseCanExecuteChanged();
             }
         }
 
@@ -364,6 +423,8 @@ namespace RestaurantAppSQLSERVER.ViewModels
             CurrentMenuItemForEdit = new MenuItem { MenuItemDishes = new List<MenuItemDish>() }; // Creeaza o instanta noua cu lista de MenuItemDish initializata
             IsEditing = true; // Trece in modul editare/adaugare
                               // Proprietatile individuale sunt actualizate prin setter-ul CurrentMenuItemForEdit
+                              // UpdateSelectableDishes() este apelat in setter-ul CurrentMenuItemForEdit,
+                              // ceea ce va reseta selectia si cantitatile la 0 pentru noul meniu.
         }
 
         private void ExecuteEditMenuItem(object parameter) // Renamed
@@ -390,6 +451,8 @@ namespace RestaurantAppSQLSERVER.ViewModels
                 };
                 IsEditing = true; // Trece in modul editare
                                   // Proprietatile individuale sunt actualizate prin setter-ul CurrentMenuItemForEdit
+                                  // UpdateSelectableDishes() este apelat in setter-ul CurrentMenuItemForEdit,
+                                  // ceea ce va popula selectia si cantitatile pe baza MenuItemDishes copiate.
             }
         }
 
@@ -459,6 +522,22 @@ namespace RestaurantAppSQLSERVER.ViewModels
                 return;
             }
 
+            // Validare suplimentara pentru preparatele selectate
+            var selectedDishesWithZeroQuantity = SelectableDishes.Where(sd => sd.IsSelected && sd.SelectedQuantity <= 0).ToList();
+            if (selectedDishesWithZeroQuantity.Any())
+            {
+                ErrorMessage = "Preparatele selectate trebuie sa aiba o cantitate mai mare decat 0.";
+                return;
+            }
+
+            // Validare: Meniul trebuie sa contina cel putin un preparat selectat cu cantitate > 0
+            if (SelectableDishes == null || !SelectableDishes.Any(sd => sd.IsSelected && sd.SelectedQuantity > 0))
+            {
+                ErrorMessage = "Meniul trebuie sa contina cel putin un preparat selectat cu o cantitate valida (> 0).";
+                return;
+            }
+
+
             try
             {
                 // Verifica daca serviciul este null (cazul design-time)
@@ -475,7 +554,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
                     MenuItemName = string.Empty; // MenuItemDescription = string.Empty; // Eliminat Description
                     MenuItemPrice = 0m; MenuItemCategoryId = 0; PhotoPath = string.Empty; // Curata PhotoPath
                     // Clear selectable dishes state
-                    // foreach(var sd in SelectableDishes) sd.IsSelected = false;
+                    foreach (var sd in SelectableDishes) { sd.IsSelected = false; sd.SelectedQuantity = 0; } // Reseteaza si cantitatea
                     return;
                 }
 
@@ -489,16 +568,21 @@ namespace RestaurantAppSQLSERVER.ViewModels
                     CurrentMenuItemForEdit.PhotoPath = PhotoPath; // Actualizeaza PhotoPath
 
                     // --- Gestionarea relatiei Many-to-Many cu Preparate (prin MenuItemDish) ---
-                    // Construieste colectia MenuItemDishes pe baza preparatelor selectate in UI
+                    // Construieste colectia MenuItemDishes pe baza preparatelor selectate in UI si a cantitatilor lor
                     CurrentMenuItemForEdit.MenuItemDishes.Clear(); // Curata legaturile existente pe obiectul din ViewModel
                     foreach (var selectableDish in SelectableDishes)
                     {
-                        if (selectableDish.IsSelected)
+                        if (selectableDish.IsSelected && selectableDish.SelectedQuantity > 0) // Adauga doar preparatele selectate cu cantitate > 0
                         {
                             // Adauga un nou MenuItemDish pentru fiecare preparat selectat
                             // MenuItemId va fi setat de EF Core la salvare pentru item-uri noi
                             // Quantity ar trebui sa fie gestionat aici daca este relevant la adaugare
-                            CurrentMenuItemForEdit.MenuItemDishes.Add(new MenuItemDish { DishId = selectableDish.Dish.Id, Quantity = 1 }); // Seteaza Quantity implicit 1 sau 0
+                            CurrentMenuItemForEdit.MenuItemDishes.Add(new MenuItemDish
+                            {
+                                DishId = selectableDish.Dish.Id,
+                                Quantity = selectableDish.SelectedQuantity // Seteaza cantitatea introdusa de utilizator
+                                // Dish = selectableDish.Dish // Poti include si Dish-ul daca este necesar in service, dar de obicei nu e la salvare
+                            });
                         }
                     }
                     // --- Sfarsit gestionare MenuItemDish ---
@@ -540,7 +624,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
                 MenuItemName = string.Empty; // MenuItemDescription = string.Empty; // Eliminat Description
                 MenuItemPrice = 0m; MenuItemCategoryId = 0; PhotoPath = string.Empty; // Curata PhotoPath
                 // Clear selectable dishes state
-                foreach (var sd in SelectableDishes) sd.IsSelected = false;
+                foreach (var sd in SelectableDishes) { sd.IsSelected = false; sd.SelectedQuantity = 0; } // Reseteaza si cantitatea
 
 
                 // Optional: Reincarca lista completa dupa salvare pentru a reflecta Id-ul pentru item-uri noi si relatiile cu MenuItemDish-urile
@@ -561,10 +645,12 @@ namespace RestaurantAppSQLSERVER.ViewModels
         {
             // Command-ul este activ doar daca suntem in modul editare/adaugare si CurrentMenuItemForEdit nu este null
             // si numele, pretul si categoria sunt valide.
+            // Adaugam si validare ca cel putin un preparat selectat sa aiba cantitatea > 0
             return IsEditing && CurrentMenuItemForEdit != null &&
                    !string.IsNullOrWhiteSpace(MenuItemName) &&
                    MenuItemPrice > 0 &&
-                   MenuItemCategoryId > 0; // Categoria trebuie sa fie selectata/setata
+                   MenuItemCategoryId > 0 &&
+                   SelectableDishes != null && SelectableDishes.Any(sd => sd.IsSelected && sd.SelectedQuantity > 0); // Cel putin un preparat selectat cu cantitate > 0
         }
 
         private void ExecuteCancelEdit(object parameter) // Renamed
@@ -577,9 +663,26 @@ namespace RestaurantAppSQLSERVER.ViewModels
             MenuItemName = string.Empty; // MenuItemDescription = string.Empty; // Eliminat Description
             MenuItemPrice = 0m; MenuItemCategoryId = 0; PhotoPath = string.Empty; // Curata PhotoPath
             // Clear selectable dishes state
-            foreach (var sd in SelectableDishes) sd.IsSelected = false;
+            foreach (var sd in SelectableDishes) { sd.IsSelected = false; sd.SelectedQuantity = 0; } // Reseteaza si cantitatea
             SelectedMenuItem = null;
             // The setters for IsEditing and CurrentMenuItemForEdit will trigger CommandManager.InvalidateRequerySuggested() and explicit RaiseCanExecuteChanged
         }
+
+        // Asigura-te ca te dezabonezi de la evenimente cand ViewModel-ul nu mai este activ
+        // intr-o aplicatie reala, ai folosi IDisposable sau un framework care gestioneaza asta.
+        // Pentru simplitate aici, ne bazam pe dezabonarea in setter-ul CurrentMenuItemForEdit.
+        // Daca ViewModel-ul este de lunga durata, ar trebui sa implementezi IDisposable.
+        /*
+        public void Dispose()
+        {
+            if (SelectableDishes != null)
+            {
+                foreach (var selectableDish in SelectableDishes)
+                {
+                    selectableDish.PropertyChanged -= SelectableDish_PropertyChanged;
+                }
+            }
+        }
+        */
     }
 }
