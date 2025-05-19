@@ -20,6 +20,8 @@ namespace RestaurantAppSQLSERVER.Models.Entities
 
         public string Status { get; set; } = "Inregistrata"; // Starea comenzii (ex: "Inregistrata", "Se pregateste", etc.)
 
+        public decimal Subtotal { get; set; } // Subtotalul comenzii (suma preturilor itemilor inainte de reduceri/transport)
+
         // Pretul total al comenzii (include item-uri, transport, reduceri).
         // Ar trebui sa fie calculat la plasarea comenzii si actualizat daca starea se schimba (ex: anulare).
         public decimal TotalPrice { get; set; }

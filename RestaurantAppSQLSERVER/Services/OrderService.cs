@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq;
 using System.Diagnostics;
+using Microsoft.Data.SqlClient; // Necesara pentru SqlParameter si SqlDbType
+using System.Data; // Necesara pentru DataTable, SqlDbType, ParameterDirection
 
 namespace RestaurantAppSQLSERVER.Services
 {
@@ -19,7 +21,7 @@ namespace RestaurantAppSQLSERVER.Services
             _dbContextFactory = dbContextFactory ?? throw new ArgumentNullException(nameof(dbContextFactory));
         }
 
-        // Metoda pentru a obtine toate comenzile
+        // Metoda pentru a obtine toate comenzile (poate fi inlocuita cu SP complexa GetEmployeeOrders)
         public async Task<List<Order>> GetAllOrdersAsync()
         {
             using (var context = _dbContextFactory.CreateDbContext())
@@ -41,7 +43,7 @@ namespace RestaurantAppSQLSERVER.Services
             }
         }
 
-        // Metoda pentru a obtine o comanda dupa ID cu toate detaliile
+        // Metoda pentru a obtine o comanda dupa ID cu toate detaliile (poate fi inlocuita cu SP complexa)
         public async Task<Order> GetOrderByIdAsync(int orderId)
         {
             using (var context = _dbContextFactory.CreateDbContext())
@@ -55,49 +57,97 @@ namespace RestaurantAppSQLSERVER.Services
             }
         }
 
-        // Metoda pentru a adauga o comanda noua (probabil folosita de partea de client)
-        // Angajatii ar putea adauga comenzi manual, dar fluxul principal e de la client.
-        // In dashboard-ul angajatului, focusul e pe vizualizare si actualizare stare.
-        public async Task AddOrderAsync(Order order)
+        // --- NOU: Metoda pentru a plasa o comanda folosind Procedura Stocata PlaceOrder ---
+        // Primeste ID-ul utilizatorului, costurile calculate si lista de itemi din cos
+        // Returneaza un obiect custom cu rezultatul (succes/esec, ID comanda, mesaj)
+        public async Task<PlaceOrderResult> PlaceOrderAsync(int userId, decimal discountAmount, decimal transportCost, List<OrderItemData> orderItems)
         {
+            // Valideaza input-ul (optional, dar recomandat)
+            if (orderItems == null || !orderItems.Any())
+            {
+                return new PlaceOrderResult { IsSuccess = false, ResultCode = -3, Message = "Cosul de cumparaturi este gol." };
+            }
+
             using (var context = _dbContextFactory.CreateDbContext())
             {
-                // Valideaza si pregateste comanda inainte de adaugare
-                if (string.IsNullOrWhiteSpace(order.OrderCode))
+                try
                 {
-                    // Genereaza un OrderCode unic daca nu exista (logica mai complexa)
-                    order.OrderCode = GenerateUniqueOrderCode(); // Implementeaza aceasta metoda
-                }
+                    // 1. Construieste Table-Valued Parameter-ul (DataTable)
+                    // Numele coloanelor si tipurile de date trebuie sa se potriveasca EXACT cu OrderItemType din SQL Server
+                    var orderItemsDataTable = new DataTable();
+                    orderItemsDataTable.Columns.Add("ItemId", typeof(int));
+                    orderItemsDataTable.Columns.Add("ItemType", typeof(string));
+                    orderItemsDataTable.Columns.Add("Quantity", typeof(int));
+                    orderItemsDataTable.Columns.Add("UnitPrice", typeof(decimal));
+                    orderItemsDataTable.Columns.Add("ItemName", typeof(string));
 
-                // Asigura-te ca User-ul este atasat contextului daca exista
-                if (order.User != null && context.Entry(order.User).State == EntityState.Detached)
-                {
-                    context.Users.Attach(order.User);
-                }
-
-                // Asigura-te ca OrderItems si entitatile lor legate (Dish/MenuItem) sunt gestionate corect
-                if (order.OrderItems != null)
-                {
-                    foreach (var orderItem in order.OrderItems)
+                    // Populeaza DataTable cu datele din lista de itemi primita
+                    foreach (var item in orderItems)
                     {
-                        // Aici, OrderItem contine deja Name, Price, Quantity la momentul comenzii.
-                        // Nu este necesar sa atasezi Dish/MenuItem la salvarea OrderItem-ului,
-                        // deoarece OrderItem stocheaza datele istorice.
-                        // Daca ai avea nevoie sa le atasezi, ar fi complex din cauza ItemType/ItemId.
+                        orderItemsDataTable.Rows.Add(item.ItemId, item.ItemType, item.Quantity, item.UnitPrice, item.ItemName);
                     }
+
+                    // 2. Declara Parametrii pentru Procedura Stocata
+                    var userIdParam = new SqlParameter("@UserId", userId);
+                    var discountAmountParam = new SqlParameter("@DiscountAmount", discountAmount);
+                    var transportCostParam = new SqlParameter("@TransportCost", transportCost);
+
+                    // Parametrul pentru Table-Valued Parameter
+                    // Specifica SqlDbType.Structured si numele tipului tabelar din baza de date ("OrderItemType")
+                    var orderItemsParam = new SqlParameter("@OrderItems", orderItemsDataTable)
+                    {
+                        TypeName = "OrderItemType", // << Numele tipului tabelar din SQL Server
+                        SqlDbType = SqlDbType.Structured // << Indica ca este un tip tabelar
+                    };
+
+                    // Parametri de output
+                    var newOrderIdParam = new SqlParameter("@NewOrderId", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                    var resultCodeParam = new SqlParameter("@ResultCode", SqlDbType.Int) { Direction = ParameterDirection.Output };
+                    var resultMessageParam = new SqlParameter("@ResultMessage", SqlDbType.NVarChar, -1) { Direction = ParameterDirection.Output }; // -1 pentru NVARCHAR(MAX)
+
+
+                    // 3. Apeleaza Procedura Stocata
+                    // Folosim ExecuteSqlRawAsync pentru ca pasam parametrii ca obiecte SqlParameter
+                    // Include toti parametrii in string-ul de apel, marcand parametrii de output cu "OUTPUT"
+                    await context.Database.ExecuteSqlRawAsync(
+                        "EXEC PlaceOrder @UserId, @DiscountAmount, @TransportCost, @OrderItems, @NewOrderId OUTPUT, @ResultCode OUTPUT, @ResultMessage OUTPUT",
+                        userIdParam,
+                        discountAmountParam,
+                        transportCostParam,
+                        orderItemsParam,
+                        newOrderIdParam,
+                        resultCodeParam,
+                        resultMessageParam
+                    );
+
+                    // 4. Citeste Parametrii de Output si Returneaza Rezultatul
+                    int resultCode = (int)resultCodeParam.Value;
+                    string resultMessage = resultMessageParam.Value.ToString();
+                    int? newOrderId = (newOrderIdParam.Value != DBNull.Value) ? (int)newOrderIdParam.Value : (int?)null;
+
+
+                    return new PlaceOrderResult
+                    {
+                        IsSuccess = (resultCode == 1), // Succes daca ResultCode este 1
+                        ResultCode = resultCode,
+                        Message = resultMessage,
+                        OrderId = newOrderId
+                    };
+
                 }
-
-                order.OrderDate = DateTime.Now; // Seteaza data comenzii la momentul adaugarii
-                // TotalPrice, TransportCost, DiscountPercentage ar trebui calculate inainte de a apela AddOrderAsync
-
-                context.Orders.Add(order);
-                await context.SaveChangesAsync();
-                Debug.WriteLine($"Comanda '{order.OrderCode}' adaugata cu ID: {order.Id}");
+                catch (Exception ex)
+                {
+                    // Gestioneaza erorile care pot aparea la apelarea procedurii stocate
+                    Debug.WriteLine($"Error calling PlaceOrder stored procedure: {ex.Message}");
+                    // Arunca exceptia mai departe sau returneaza un indicator de eroare
+                    return new PlaceOrderResult { IsSuccess = false, ResultCode = -2, Message = $"Eroare la plasarea comenzii: {ex.Message}" };
+                }
             }
         }
 
-        // Metoda pentru a actualiza o comanda existenta
-        // In dashboard-ul angajatului, aceasta va fi folosita in principal pentru a actualiza Starea.
+
+        // Metoda pentru a actualiza o comanda existenta (probabil folosita de angajati)
+        // Poate fi inlocuita cu SP complexa UpdateOrderStatus sau similar
         public async Task UpdateOrderAsync(Order order)
         {
             using (var context = _dbContextFactory.CreateDbContext())
@@ -113,6 +163,7 @@ namespace RestaurantAppSQLSERVER.Services
                 }
 
                 // Actualizeaza proprietatile simple ale comenzii (inclusiv Status, EstimatedDeliveryTime, TotalPrice etc.)
+                // Exclude OrderItems de la actualizarea directa prin SetValues
                 context.Entry(existingOrder).CurrentValues.SetValues(order);
 
                 // --- Gestionarea OrderItems (daca permiti modificarea itemilor din comanda in dashboard) ---
@@ -133,7 +184,7 @@ namespace RestaurantAppSQLSERVER.Services
             }
         }
 
-        // Metoda pentru a sterge o comanda
+        // Metoda pentru a sterge o comanda (poate fi inlocuita cu SP simpla DeleteOrder)
         public async Task DeleteOrderAsync(int orderId)
         {
             using (var context = _dbContextFactory.CreateDbContext())
@@ -152,13 +203,36 @@ namespace RestaurantAppSQLSERVER.Services
         }
 
         // Metoda helper pentru a genera un cod unic de comanda (exemplu simplificat)
+        // Aceasta logica este acum in SP PlaceOrder, deci aceasta metoda nu mai este necesara aici pentru plasarea comenzii
+        /*
         private string GenerateUniqueOrderCode()
         {
             // Implementeaza o logica reala de generare cod unic (ex: data + counter, GUID partial etc.)
             // Verifica in baza de date sa te asiguri ca este unic.
             return $"ORD-{DateTime.Now.ToString("yyyyMMddHHmmss")}-{Guid.NewGuid().ToString().Substring(0, 4)}";
         }
+        */
 
         // Aici poti adauga si alte metode utile, ex: GetOrdersByStatusAsync, GetOrdersByDateRangeAsync etc.
+    }
+
+    // Clasa helper pentru a pasa datele unui item din cos catre OrderService/SP
+    public class OrderItemData
+    {
+        public int ItemId { get; set; }
+        public string ItemType { get; set; } // "Dish" sau "MenuItem"
+        public int Quantity { get; set; }
+        public decimal UnitPrice { get; set; } // Pretul unitar la momentul adaugarii in cos
+        public string ItemName { get; set; } // Numele la momentul adaugarii in cos
+    }
+
+    // Clasa helper pentru a returna rezultatul plasarii comenzii
+    public class PlaceOrderResult
+    {
+        public bool IsSuccess { get; set; }
+        public int ResultCode { get; set; } // 1 succes, 0 stoc insuficient, -1 eroare necunoscuta, -2 eroare SQL, -3 cos gol
+        public string Message { get; set; }
+        public int? OrderId { get; set; } // ID-ul comenzii nou create (null in caz de esec)
+        // Poti adauga si OrderCode aici daca vrei sa-l returnezi
     }
 }
