@@ -29,6 +29,9 @@ namespace RestaurantAppSQLSERVER.ViewModels
         public ICommand ShowMenusCrudCommand { get; }
         public ICommand ShowOrdersCommand { get; } // Adauga pentru Comenzi
 
+        // Command pentru Logout
+        public ICommand LogoutCommand { get; }
+
 
         // Serviciile necesare (injectate)
         private readonly DishService _dishService;
@@ -68,6 +71,9 @@ namespace RestaurantAppSQLSERVER.ViewModels
             ShowAllergensCrudCommand = new RelayCommand(ExecuteShowAllergensCrud);
             ShowMenusCrudCommand = new RelayCommand(ExecuteShowMenusCrud);
             ShowOrdersCommand = new RelayCommand(ExecuteShowOrders); // Initializeaza command-ul pentru Comenzi
+
+            // Initializeaza command-ul de Logout
+            LogoutCommand = new RelayCommand(ExecuteLogout);
 
 
             // Seteaza ViewModel-ul initial afisat (ex: sectiunea Preparate)
@@ -120,6 +126,12 @@ namespace RestaurantAppSQLSERVER.ViewModels
             CurrentCrudViewModel = new OrderEmployeeViewModel(_orderService); // Instantiate the renamed ViewModel
                                                                               // Optional: Incarca datele automat la afisarea sectiunii
                                                                               // Task.Run(async () => await ((OrderEmployeeViewModel)CurrentCrudViewModel).LoadOrdersCommand.Execute(null)); // Apeleaza LoadOrdersCommand
+        }
+
+        // Metoda pentru Command-ul de Logout
+        private void ExecuteLogout(object parameter)
+        {
+            _mainViewModel.Logout(); // Apeleaza metoda Logout din MainViewModel
         }
     }
 }

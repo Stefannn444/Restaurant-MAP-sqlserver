@@ -56,7 +56,10 @@
                 <Button Content="Alergeni" Command="{Binding ShowAllergensCrudCommand}" Margin="0,0,0,5" Style="{StaticResource MenuButtonStyle}"/>
                 <Button Content="Meniuri" Command="{Binding ShowMenusCrudCommand}" Margin="0,0,0,5" Style="{StaticResource MenuButtonStyle}"/>
                 <Button Content="Comenzi" Command="{Binding ShowOrdersCommand}" Margin="0,0,0,5" Style="{StaticResource MenuButtonStyle}"/>
-</StackPanel>
+
+                <Button Content="Logout" Command="{Binding LogoutCommand}" Margin="0,30,0,5" Style="{StaticResource MenuButtonStyle}"/>
+
+            </StackPanel>
         </Border>
 
         <ContentControl Grid.Column="1" Content="{Binding CurrentCrudViewModel}" Margin="10"/>

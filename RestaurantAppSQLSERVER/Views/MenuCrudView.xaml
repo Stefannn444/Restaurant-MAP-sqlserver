@@ -41,7 +41,6 @@
                   IsReadOnly="True"
                   Margin="10">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="Auto"/>
                 <DataGridTextColumn Header="Nume" Binding="{Binding Name}" Width="*"/>
                 <DataGridTextColumn Header="Pret" Binding="{Binding Price}" Width="Auto"/>
                 <DataGridTextColumn Header="Categorie" Binding="{Binding Category.Name}" Width="Auto"/>

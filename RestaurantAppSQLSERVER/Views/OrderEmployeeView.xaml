@@ -42,7 +42,6 @@
                 Margin="10"
                 Visibility="{Binding IsViewingDetails, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="Auto"/>
                     <DataGridTextColumn Header="Cod Comanda" Binding="{Binding OrderCode}" Width="Auto"/>
                     <DataGridTextColumn Header="Client" Binding="{Binding User.Username}" Width="*"/>
                     <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="Auto"/>
