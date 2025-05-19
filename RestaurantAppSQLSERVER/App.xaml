@@ -44,6 +44,9 @@
 			<views:OrderEmployeeView/>
 		</DataTemplate>
 
+        <DataTemplate DataType="{x:Type vm:ClientDashboardViewModel}">
+            <views:ClientDashboardView/>
+        </DataTemplate>
 
-	</Application.Resources>
+    </Application.Resources>
 </Application>

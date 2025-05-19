@@ -83,7 +83,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
         public void ShowClientDashboardView()
         {
             // Implementeaza ClientDashboardViewModel si View
-            // CurrentViewModel = new ClientDashboardViewModel(LoggedInUser, _userService, this /*, other services */);
+            CurrentViewModel = new ClientDashboardViewModel(LoggedInUser, _categoryService, _dishService, _menuItemService, this);
         }
 
 
