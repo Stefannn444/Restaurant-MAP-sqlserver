@@ -8,6 +8,8 @@ using System.Linq;
 using System.Diagnostics;
 using Microsoft.Data.SqlClient; // Necesara pentru SqlParameter si SqlDbType
 using System.Data; // Necesara pentru DataTable, SqlDbType, ParameterDirection
+// using RestaurantAppSQLSERVER.Models.Wrappers; // Poate nu mai este necesara daca nu folosesti ClientOrderItemHistory
+
 
 namespace RestaurantAppSQLSERVER.Services
 {
@@ -27,17 +29,10 @@ namespace RestaurantAppSQLSERVER.Services
             using (var context = _dbContextFactory.CreateDbContext())
             {
                 // Include User pentru a afisa informatii despre client
-                // Include OrderItems si entitatile legate (Dish/MenuItem) daca este necesar
-                // Nota: In OrderItem, ItemType si ItemId indica Dish sau MenuItem.
-                // Pentru a include detaliile complete ale Dish/MenuItem, ar fi nevoie
-                // de o logica mai complexa sau de proprietati de navigare conditionale,
-                // sau sa le incarci separat in ViewModel.
-                // Momentan, ne bazam pe datele istorice stocate in OrderItem (Name, Price).
+                // Include OrderItems
                 return await context.Orders
                                     .Include(o => o.User) // Include userul care a plasat comanda
                                     .Include(o => o.OrderItems) // Include itemii din comanda
-                                                                // Daca vrei sa incluzi Dish/MenuItem complete, ar fi complex aici:
-                                                                // .Include(o => o.OrderItems).ThenInclude(...) // Nu putem include conditionat Dish SAU MenuItem direct
                                     .OrderByDescending(o => o.OrderDate) // Afisam cele mai recente comenzi primele
                                     .ToListAsync();
             }
@@ -51,13 +46,11 @@ namespace RestaurantAppSQLSERVER.Services
                 return await context.Orders
                                     .Include(o => o.User)
                                     .Include(o => o.OrderItems)
-                                    // Daca vrei sa incluzi Dish/MenuItem complete, ar fi complex aici:
-                                    // .Include(o => o.OrderItems).ThenInclude(...)
                                     .FirstOrDefaultAsync(o => o.Id == orderId);
             }
         }
 
-        // --- NOU: Metoda pentru a plasa o comanda folosind Procedura Stocata PlaceOrder ---
+        // --- Metoda pentru a plasa o comanda folosind Procedura Stocata PlaceOrder ---
         // Primeste ID-ul utilizatorului, costurile calculate si lista de itemi din cos
         // Returneaza un obiect custom cu rezultatul (succes/esec, ID comanda, mesaj)
         public async Task<PlaceOrderResult> PlaceOrderAsync(int userId, decimal discountAmount, decimal transportCost, List<OrderItemData> orderItems)
@@ -137,10 +130,36 @@ namespace RestaurantAppSQLSERVER.Services
                 }
                 catch (Exception ex)
                 {
-                    // Gestioneaza erorile care pot aparea la apelarea procedurii stocate
+                    // Gestioneaza erorile care pot aparea la apelarea procedurii stocata
                     Debug.WriteLine($"Error calling PlaceOrder stored procedure: {ex.Message}");
                     // Arunca exceptia mai departe sau returneaza un indicator de eroare
                     return new PlaceOrderResult { IsSuccess = false, ResultCode = -2, Message = $"Eroare la plasarea comenzii: {ex.Message}" };
+                }
+            }
+        }
+
+        // --- NOU: Metoda pentru a obtine istoricul comenzilor unui client folosind EF Core ---
+        // Returneaza o lista de obiecte Order cu OrderItems incluse
+        public async Task<List<Order>> GetClientOrdersAsync(int userId)
+        {
+            using (var context = _dbContextFactory.CreateDbContext())
+            {
+                try
+                {
+                    // Folosim LINQ si Include pentru a prelua comenzile utilizatorului si itemii lor
+                    var clientOrders = await context.Orders
+                                                    .Where(o => o.UserId == userId) // Filtreaza dupa ID-ul utilizatorului
+                                                    .Include(o => o.OrderItems) // Include itemii din comanda
+                                                    .OrderByDescending(o => o.OrderDate) // Ordoneaza de la cele mai recente la cele mai vechi
+                                                    .ToListAsync(); // Executa query-ul si aduce rezultatele
+
+                    return clientOrders;
+                }
+                catch (Exception ex)
+                {
+                    // Gestioneaza erorile
+                    Debug.WriteLine($"Error retrieving client orders with EF Core: {ex.Message}");
+                    throw; // Arunca exceptia mai departe
                 }
             }
         }

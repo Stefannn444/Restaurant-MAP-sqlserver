@@ -7,6 +7,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration; // Adaugat pentru IConfiguration
+using RestaurantAppSQLSERVER.ViewModels; // Necesara pentru ClientOrdersViewModel
+
 
 namespace RestaurantAppSQLSERVER.ViewModels
 {
@@ -76,8 +78,10 @@ namespace RestaurantAppSQLSERVER.ViewModels
         public void ShowRegisterView()
         {
             // Instanțiază RegisterViewModel și setează-l ca ViewModel curent
+            // Aceasta este linia corectă. Asigură-te că este decomentată.
             CurrentViewModel = new RegisterViewModel(_userService, this);
-            // Eliminați linia cu PlaceholderViewModel
+
+            // Eliminați sau comentați linia cu PlaceholderViewModel
             // CurrentViewModel = new PlaceholderViewModel("Register View");
         }
 
@@ -87,9 +91,9 @@ namespace RestaurantAppSQLSERVER.ViewModels
             // Verifică dacă utilizatorul autentificat este angajat (optional, dar recomandat)
             if (LoggedInUser != null && LoggedInUser.Rol == UserRole.Angajat)
             {
-                // Initializeaza EmployeeDashboardViewModel cu TOATE serviciile necesare
-                //CurrentCrudViewModel = new OrderEmployeeViewModel(_orderService); // Example, replace with actual EmployeeDashboardViewModel logic
+                // TODO: Navigheaza la dashboard angajat
                  CurrentViewModel = new EmployeeDashboardViewModel(_dishService, _categoryService, _allergenService, _menuItemService, _orderService, this /*, other services */);
+                //CurrentViewModel = new PlaceholderViewModel("Dashboard Angajat - Implementare in curs..."); // Placeholder temporar
             }
             else
             {
@@ -98,7 +102,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
             }
         }
 
-        // Metoda pentru a arata Dashboard-ul Clientului (pentru utilizatori autentificati)
+        // Metoda pentru a arata Dashboard-ul Clientului (autentificat)
         public void ShowClientDashboardView(User user)
         {
             // Seteaza utilizatorul autentificat
@@ -109,7 +113,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
             CurrentViewModel = new ClientDashboardViewModel(LoggedInUser, _categoryService, _dishService, _menuItemService, _orderService, this, _configuration);
         }
 
-        // Metoda pentru a arata Dashboard-ul Clientului (pour les invités)
+        // Metoda pentru a arata Dashboard-ul Clientului (pentru invitati)
         public void ShowGuestClientDashboardView()
         {
             // Seteaza utilizatorul autentificat la null pentru sesiunea de invitat
@@ -118,6 +122,19 @@ namespace RestaurantAppSQLSERVER.ViewModels
             // Pasam si DbContextFactory catre ClientDashboardViewModel pentru a putea apela SP-ul
             // Pasam si IConfiguration
             CurrentViewModel = new ClientDashboardViewModel(null, _categoryService, _dishService, _menuItemService, _orderService, this, _configuration);
+        }
+
+        // --- NOU: Metoda pentru a arata View-ul cu istoricul comenzilor clientului ---
+        public void ShowClientOrdersView(User user)
+        {
+            if (user == null)
+            {
+                // Daca userul este null (invitat), il redirectionezi la login sau afisezi un mesaj
+                ShowLoginView(); // Sau afiseaza un mesaj de eroare
+                return;
+            }
+            // Creeaza ClientOrdersViewModel, pasand userul autentificat, OrderService si MainViewModel
+            CurrentViewModel = new ClientOrdersViewModel(user, _orderService, this);
         }
 
 

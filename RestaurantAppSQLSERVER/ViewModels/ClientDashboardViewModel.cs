@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.ComponentModel; // Adaugat pentru IPropertyChangedEvent
 using Microsoft.EntityFrameworkCore; // Necesara pentru FromSqlInterpolated
 using Microsoft.Extensions.Configuration; // Necesara pentru configurare (appsettings.json)
+using System.Windows; // Adaugat pentru App.Current.Dispatcher
 
 
 namespace RestaurantAppSQLSERVER.ViewModels
@@ -157,7 +158,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
 
 
         // Constructor PUBLIC FARA PARAMETRI - DOAR PENTRU DESIGN TIME
-        /*public ClientDashboardViewModel() : this(null, null, null, null, null, null) // Adaugat un null pentru IConfiguration
+       /* public ClientDashboardViewModel() : this(null, null, null, null, null, null) // Adaugat un null pentru IConfiguration
         {
             Debug.WriteLine("ClientDashboardViewModel created for Design Time.");
             // Poti adauga date mock aici pentru a vedea ceva in designer
@@ -226,11 +227,11 @@ namespace RestaurantAppSQLSERVER.ViewModels
 
         // --- Metode pentru Command-uri ---
 
+        // Metoda de executie pentru ShowClientOrdersCommand
         private void ExecuteShowClientOrders(object parameter)
         {
-            // TODO: Implementeaza ViewModel si View pentru comenzile clientului
-            // _mainViewModel.ShowClientOrdersView(LoggedInUser); // Apeleaza o metoda in MainViewModel pentru a schimba View-ul
-            ErrorMessage = "Sectiunea Comenzi Client nu este inca implementata.";
+            // Apeleaza metoda din MainViewModel pentru a schimba View-ul catre istoricul comenzilor
+            _mainViewModel.ShowClientOrdersView(LoggedInUser); // Pasam utilizatorul autentificat
         }
 
         // Metoda CanExecute pentru ShowClientOrdersCommand (dezactivat pentru invitati)
@@ -246,7 +247,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
             _mainViewModel.Logout(); // Apeleaza metoda Logout din MainViewModel
         }
 
-        // Metoda de executie pentru noul Command ShowLoginCommand (pentru invitati)
+        // Metoda de executie pentru noul Command ShowLoginCommand (pour les invités)
         private void ExecuteShowLogin(object parameter)
         {
             _mainViewModel.ShowLoginView(); // Apeleaza metoda de navigare din MainViewModel
@@ -412,6 +413,9 @@ namespace RestaurantAppSQLSERVER.ViewModels
             // Citeste setarile din appsettings.json
             // Asigura-te ca ai adaugat pachetul NuGet Microsoft.Extensions.Configuration.Binder
             // pentru a folosi GetSection(...).Get<T>() sau GetValue<T>()
+            // Verifica daca _configuration nu este null (cazul design-time)
+            if (_configuration == null) return;
+
             var discountThresholdAmount = _configuration.GetValue<decimal>("OrderSettings:DiscountThresholdAmount");
             var loyaltyOrderCountThreshold = _configuration.GetValue<int>("OrderSettings:LoyaltyOrderCountThreshold");
             var loyaltyTimeIntervalDays = _configuration.GetValue<int>("OrderSettings:LoyaltyTimeIntervalDays");
@@ -497,7 +501,8 @@ namespace RestaurantAppSQLSERVER.ViewModels
                     var categoriesWithItems = new ObservableCollection<CategoryDisplayWrapper>();
 
                     // Gruparea se face acum in C# pe baza CategoryId si CategoryName returnate de SP
-                    var groupedItems = menuItemsData.GroupBy(item => new { item.CategoryId, item.ItemName }); // Grupam dupa CategoryId si ItemName (numele itemului)
+                    // Folosim o copie a listei pentru a evita modificarea colectiei in timpul iterarii
+                    var groupedItems = menuItemsData.GroupBy(item => new { item.CategoryId, item.CategoryName }); // Grupam dupa CategoryId si CategoryName
 
                     foreach (var group in groupedItems)
                     {
@@ -507,22 +512,30 @@ namespace RestaurantAppSQLSERVER.ViewModels
                         {
                             // Creeaza un wrapper pentru fiecare categorie
                             // Asiguram ca Category este initializat corect
-                            categoryWrapper = new CategoryDisplayWrapper(new Category { Id = group.Key.CategoryId, Name = group.First().CategoryName }); // Folosim CategoryName din primul item al grupului
+                            categoryWrapper = new CategoryDisplayWrapper(new Category { Id = group.Key.CategoryId, Name = group.Key.CategoryName }); // Folosim CategoryName din cheia grupului
                             categoriesWithItems.Add(categoryWrapper);
                         }
 
-
                         // Adauga itemii (Dish/MenuItem) din grupul curent la wrapper-ul categoriei
-                        foreach (var item in group.OrderBy(item => item.ItemName)) // Ordoneaza itemii in cadrul categoriei
+                        // Ordoneaza itemii in cadrul categoriei
+                        var orderedItems = group.OrderBy(item => item.ItemName).ToList();
+                        foreach (var item in orderedItems)
                         {
                             categoryWrapper.DisplayItems.Add(item); // Adauga direct obiectul DisplayMenuItem mapat din SP
                         }
                     }
 
                     // Sorteaza categoriile (optional)
-                    MenuCategories = new ObservableCollection<CategoryDisplayWrapper>(categoriesWithItems.OrderBy(c => c.Category.Name));
+                    App.Current.Dispatcher.Invoke(() =>
+                    {
+                        MenuCategories.Clear();
+                        foreach (var category in categoriesWithItems.OrderBy(c => c.Category.Name))
+                        {
+                            MenuCategories.Add(category);
+                        }
+                        OnPropertyChanged(nameof(MenuCategories)); // Notifica View-ul ca s-a schimbat colectia
+                    });
 
-                    OnPropertyChanged(nameof(MenuCategories)); // Notifica View-ul ca s-a schimbat colectia
 
                     SuccessMessage = "Meniul a fost incarcat cu succes.";
                 }
@@ -550,6 +563,9 @@ namespace RestaurantAppSQLSERVER.ViewModels
                 _quantity = value;
                 OnPropertyChanged(nameof(Quantity));
                 OnPropertyChanged(nameof(ItemSubtotal)); // Notifica si subtotalul itemului cand cantitatea se schimba
+                // Notifica ViewModel-ul parinte (ClientDashboardViewModel) ca subtotalul cosului s-a schimbat
+                // Aceasta necesita o referinta inapoi la ViewModel-ul parinte sau un eveniment
+                // Pentru simplitate, ne bazam pe apelul CalculateCartSubtotal() din ExecuteAddToCart/RemoveFromCart
             }
         }
 

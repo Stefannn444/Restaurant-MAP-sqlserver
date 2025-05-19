@@ -48,5 +48,9 @@
             <views:ClientDashboardView/>
         </DataTemplate>
 
+        <DataTemplate DataType="{x:Type vm:ClientOrdersViewModel}">
+            <views:ClientOrdersView/>
+        </DataTemplate>
+
     </Application.Resources>
 </Application>
