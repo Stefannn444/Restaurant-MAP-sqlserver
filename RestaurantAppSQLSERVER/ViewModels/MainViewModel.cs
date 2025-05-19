@@ -6,14 +6,20 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration; // Adaugat pentru IConfiguration
 
 namespace RestaurantAppSQLSERVER.ViewModels
 {
     public class MainViewModel : ViewModelBase
     {
         private ViewModelBase _currentViewModel;
-        // Am schimbat nivelul de protectie din internal in public pentru a permite accesul din alte ViewModels
-        public readonly DbContextFactory _dbContextFactory;
+        // Pastram DbContextFactory public sau intern pentru a fi accesat din ViewModels (ex: ClientDashboardViewModel)
+        // O abordare mai curata ar fi injectarea serviciilor direct in ViewModels unde sunt necesare,
+        // dar pentru structura ta actuala, accesarea factory-ului prin MainViewModel functioneaza.
+        public readonly DbContextFactory _dbContextFactory; // Schimbat in public
+
+        // Adaugam IConfiguration ca membru
+        private readonly IConfiguration _configuration;
 
 
         private readonly UserService _userService;
@@ -40,6 +46,13 @@ namespace RestaurantAppSQLSERVER.ViewModels
         public MainViewModel()
         {
             _dbContextFactory = new DbContextFactory();
+
+            // Construieste configuratia din appsettings.json
+            _configuration = new ConfigurationBuilder()
+                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+                .Build();
+
+
             _userService = new UserService(_dbContextFactory);
             _dishService = new DishService(_dbContextFactory);
             _categoryService = new CategoryService(_dbContextFactory); // Initializeaza CategoryService
@@ -75,7 +88,8 @@ namespace RestaurantAppSQLSERVER.ViewModels
             if (LoggedInUser != null && LoggedInUser.Rol == UserRole.Angajat)
             {
                 // Initializeaza EmployeeDashboardViewModel cu TOATE serviciile necesare
-                CurrentViewModel = new EmployeeDashboardViewModel(_dishService, _categoryService, _allergenService, _menuItemService, _orderService, this /*, other services */);
+                //CurrentCrudViewModel = new OrderEmployeeViewModel(_orderService); // Example, replace with actual EmployeeDashboardViewModel logic
+                 CurrentViewModel = new EmployeeDashboardViewModel(_dishService, _categoryService, _allergenService, _menuItemService, _orderService, this /*, other services */);
             }
             else
             {
@@ -91,17 +105,19 @@ namespace RestaurantAppSQLSERVER.ViewModels
             LoggedInUser = user;
             // Creeaza ClientDashboardViewModel, pasand userul autentificat (NU este invitat)
             // Pasam si DbContextFactory catre ClientDashboardViewModel pentru a putea apela SP-ul
-            CurrentViewModel = new ClientDashboardViewModel(LoggedInUser, _categoryService, _dishService, _menuItemService, this);
+            // Pasam si IConfiguration
+            CurrentViewModel = new ClientDashboardViewModel(LoggedInUser, _categoryService, _dishService, _menuItemService, _orderService, this, _configuration);
         }
 
-        // Metoda pentru a arata Dashboard-ul Clientului (pentru invitati)
+        // Metoda pentru a arata Dashboard-ul Clientului (pour les invités)
         public void ShowGuestClientDashboardView()
         {
             // Seteaza utilizatorul autentificat la null pentru sesiunea de invitat
             LoggedInUser = null;
             // Creeaza ClientDashboardViewModel, pasand null pentru user (ESTE invitat)
             // Pasam si DbContextFactory catre ClientDashboardViewModel pentru a putea apela SP-ul
-            CurrentViewModel = new ClientDashboardViewModel(null, _categoryService, _dishService, _menuItemService, this);
+            // Pasam si IConfiguration
+            CurrentViewModel = new ClientDashboardViewModel(null, _categoryService, _dishService, _menuItemService, _orderService, this, _configuration);
         }
 
 
@@ -113,7 +129,9 @@ namespace RestaurantAppSQLSERVER.ViewModels
             {
                 if (LoggedInUser.Rol == UserRole.Angajat)
                 {
-                    ShowEmployeeDashboardView();
+                    // TODO: Navigheaza la dashboard angajat
+                     ShowEmployeeDashboardView();
+                    //CurrentViewModel = new PlaceholderViewModel("Dashboard Angajat - Implementare in curs..."); // Placeholder temporar
                 }
                 else // Rolul este Client
                 {
