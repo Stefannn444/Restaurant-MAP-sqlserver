@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using RestaurantAppSQLSERVER.Models.Entities;
+using RestaurantAppSQLSERVER.Models.Wrappers; // Adaugat pentru DisplayMenuItem
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -22,6 +23,8 @@ namespace RestaurantAppSQLSERVER.Data
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
 
+        // NU adaugi DbSet<DisplayMenuItem> aici, deoarece nu este o entitate de baza de date
+
         public RestaurantDbContext(DbContextOptions<RestaurantDbContext> options)
             : base(options)
         {
@@ -35,109 +38,94 @@ namespace RestaurantAppSQLSERVER.Data
 
             // Relatia Many-to-Many intre Dish si Allergen (prin DishAllergen)
             modelBuilder.Entity<DishAllergen>()
-                .HasKey(da => new { da.DishId, da.AllergenId }); // Defineste cheia primara compusa
+                .HasKey(da => new { da.DishId, da.AllergenId }); // Cheie compusa
 
             modelBuilder.Entity<DishAllergen>()
-                .HasOne(da => da.Dish) // O legatura DishAllergen are un singur Dish
-                .WithMany(d => d.DishAllergens) // Un Dish poate avea multe legaturi DishAllergen
+                .HasOne(da => da.Dish)
+                .WithMany(d => d.DishAllergens)
                 .HasForeignKey(da => da.DishId)
-                .OnDelete(DeleteBehavior.Cascade); // Cand stergi un Dish, sterge legaturile din DishAllergen
+                .OnDelete(DeleteBehavior.Restrict); // Sau Cascade, in functie de logica dorita
 
             modelBuilder.Entity<DishAllergen>()
-                .HasOne(da => da.Allergen) // O legatura DishAllergen are un singur Allergen
-                .WithMany(a => a.DishAllergens) // Un Allergen poate avea multe legaturi DishAllergen
+                .HasOne(da => da.Allergen)
+                .WithMany(a => a.DishAllergens)
                 .HasForeignKey(da => da.AllergenId)
-                .OnDelete(DeleteBehavior.Cascade); // Cand stergi un Allergen, sterge legaturile din DishAllergen
+                .OnDelete(DeleteBehavior.Restrict); // Sau Cascade
 
             // Relatia Many-to-Many intre MenuItem si Dish (prin MenuItemDish)
             modelBuilder.Entity<MenuItemDish>()
-                .HasKey(mid => new { mid.MenuItemId, mid.DishId }); // Defineste cheia primara compusa
+                .HasKey(mid => new { mid.MenuItemId, mid.DishId }); // Cheie compusa
 
             modelBuilder.Entity<MenuItemDish>()
-                .HasOne(mid => mid.MenuItem) // O legatura MenuItemDish are un singur MenuItem
-                .WithMany(mi => mi.MenuItemDishes) // Un MenuItem poate avea multe legaturi MenuItemDish
+                .HasOne(mid => mid.MenuItem)
+                .WithMany(mi => mi.MenuItemDishes)
                 .HasForeignKey(mid => mid.MenuItemId)
-                .OnDelete(DeleteBehavior.Cascade); // Cand stergi un MenuItem, sterge legaturile din MenuItemDish
+                .OnDelete(DeleteBehavior.Cascade); // Stergerea unui MenuItem sterge legaturile
 
             modelBuilder.Entity<MenuItemDish>()
-                .HasOne(mid => mid.Dish) // O legatura MenuItemDish are un singur Dish
-                .WithMany(d => d.MenuItemDishes) // Un Dish poate fi in multe legaturi MenuItemDish (in meniuri diferite)
+                .HasOne(mid => mid.Dish)
+                .WithMany(d => d.MenuItemDishes)
                 .HasForeignKey(mid => mid.DishId)
-                .OnDelete(DeleteBehavior.Restrict); // <--- FIX: Seteaza pe Restrict pentru a evita ciclul
+                .OnDelete(DeleteBehavior.Restrict); // Nu sterge Dish-ul daca face parte dintr-un MenuItem
 
             // Relatia One-to-Many intre Category si Dish
             modelBuilder.Entity<Category>()
-                .HasMany(c => c.Dishes) // O Categorie are multe Dish-uri
-                .WithOne(d => d.Category) // Un Dish are o singura Categorie
+                .HasMany(c => c.Dishes)
+                .WithOne(d => d.Category)
                 .HasForeignKey(d => d.CategoryId)
-                .OnDelete(DeleteBehavior.Restrict); // Seteaza pe Restrict pentru a evita stergerea in cascada a Dish-urilor la stergerea Categoriei
+                .OnDelete(DeleteBehavior.Restrict); // Nu sterge Categoria daca are Dish-uri
 
             // Relatia One-to-Many intre Category si MenuItem
             modelBuilder.Entity<Category>()
-               .HasMany(c => c.MenuItems) // O Categorie are multe MenuItem-uri
-               .WithOne(mi => mi.Category) // Un MenuItem are o singura Categorie
+               .HasMany(c => c.MenuItems)
+               .WithOne(mi => mi.Category)
                .HasForeignKey(mi => mi.CategoryId)
-               .OnDelete(DeleteBehavior.Restrict); // Seteaza pe Restrict pentru a evita stergerea in cascada a MenuItem-urilor la stergerea Categoriei
+               .OnDelete(DeleteBehavior.Restrict); // Nu sterge Categoria daca are Meniuri
 
             // Relatia One-to-Many intre User si Order
             modelBuilder.Entity<User>()
-                .HasMany(u => u.Orders) // Un User are multe Orders
-                .WithOne(o => o.User) // Un Order are un singur User
+                .HasMany(u => u.Orders)
+                .WithOne(o => o.User)
                 .HasForeignKey(o => o.UserId)
-                .OnDelete(DeleteBehavior.Cascade); // Cand stergi un User, sterge comenzile sale
+                .OnDelete(DeleteBehavior.Restrict); // Nu sterge User-ul daca are Comenzi
 
             // Relatia One-to-Many intre Order si OrderItem
             modelBuilder.Entity<Order>()
-                .HasMany(o => o.OrderItems) // Un Order are multe OrderItems
-                .WithOne(oi => oi.Order) // Un OrderItem are un singur Order
+                .HasMany(o => o.OrderItems)
+                .WithOne(oi => oi.Order)
                 .HasForeignKey(oi => oi.OrderId)
-                .OnDelete(DeleteBehavior.Cascade); // Cand stergi un Order, sterge item-urile din el
+                .OnDelete(DeleteBehavior.Cascade); // Stergerea unei Comenzi sterge OrderItem-urile
 
-            // --- Configurari suplimentare (optional, dar recomandat) ---
+            // --- Configurarea Tipului Fara Cheie (Keyless Entity Type) pentru DisplayMenuItem ---
+            // Acest lucru permite maparea rezultatelor unui query/SP la clasa DisplayMenuItem
+            // chiar daca aceasta nu corespunde unei tabele si nu are cheie primara.
+            modelBuilder.Entity<DisplayMenuItem>().HasNoKey();
 
-            // Asigură-te că OrderCode este unic (dacă vrei să fie un identificator unic)
-            modelBuilder.Entity<Order>()
-                 .HasIndex(o => o.OrderCode)
-                 .IsUnique(); // Adaugat index unic pentru OrderCode
-
-            // Configurează precizia pentru tipurile decimal (pentru preturi)
-            modelBuilder.Entity<Dish>()
-                .Property(d => d.Price)
-                .HasPrecision(18, 2);
-
-            modelBuilder.Entity<MenuItem>()
-                .Property(mi => mi.Price)
-                .HasPrecision(18, 2);
-
-            modelBuilder.Entity<OrderItem>()
-                .Property(oi => oi.Price)
-                .HasPrecision(18, 2);
-
-            modelBuilder.Entity<OrderItem>()
-                .Property(oi => oi.TotalPrice)
-                .HasPrecision(18, 2);
-
-            modelBuilder.Entity<Order>()
-               .Property(o => o.TotalPrice)
-               .HasPrecision(18, 2);
-
-            modelBuilder.Entity<Order>()
-               .Property(o => o.TransportCost)
-               .HasPrecision(18, 2);
-
-            // --- Seeding pentru testare (pastrat) ---
+            // --- Seeding Initial (Optional) ---
             modelBuilder.Entity<User>().HasData(
                 new User
                 {
                     Id = 1,
-                    Nume = "Ion",
-                    Prenume = "Popescu",
-                    Email = "ion.popescu@example.com",
-                    Nr_tel = "0712345678",
+                    Nume = "Client",
+                    Prenume = "Exemplu",
+                    Email = "client@exemplu.com",
+                    Nr_tel = "0700000000",
                     Adresa = "Strada Exemplu 1",
                     Parola = "parola123", // Parola reală ar trebui să fie hash-uită!
                     Rol = UserRole.Client
                 }
+                 // Adauga si un angajat pentru testare
+                 , new User
+                 {
+                     Id = 2,
+                     Nume = "Angajat",
+                     Prenume = "Restaurant",
+                     Email = "angajat@exemplu.com",
+                     Nr_tel = "0711111111",
+                     Adresa = "Sediul Restaurantului",
+                     Parola = "parolaangajat", // Parola reală ar trebui să fie hash-uită!
+                     Rol = UserRole.Angajat
+                 }
             );
 
             // Adaugă seeding pentru alte entitati daca vrei sa ai date initiale in baza de date (optional)
@@ -163,8 +151,10 @@ namespace RestaurantAppSQLSERVER.Data
             // );
 
             // Seeding pentru tabelele de legatura (daca adaugi date pentru Dish si Allergen/MenuItem)
-            // modelBuilder.Entity<DishAllergen>().HasData(...)
-            // modelBuilder.Entity<MenuItemDish>().HasData(...)
+            // modelBuilder.Entity<DishAllergen>().HasData( new DishAllergen { DishId = 1, AllergenId = ... } );
+            // modelBuilder.Entity<MenuItemDish>().HasData( new MenuItemDish { MenuItemId = ..., DishId = ..., Quantity = ... } );
+
+
         }
     }
 }

@@ -9,55 +9,83 @@ using System.Threading.Tasks;
 namespace RestaurantAppSQLSERVER.Models.Wrappers
 {
     // Wrapper class to represent either a Dish or a MenuItem for display in the client menu
+    // Extinsa pentru a include informatii despre cantitate/gramaj si alergeni
     public class DisplayMenuItem : ViewModelBase // Inherit ViewModelBase if needed for future interactions (e.g., adding to cart)
     {
-        // Properties to hold data common to Dish and MenuItem (or accessed from them)
-        public int Id { get; set; }
-        public string Name { get; set; }
-        public decimal Price { get; set; }
-        public string? PhotoPath { get; set; }
-        public string ItemType { get; set; } // "Dish" or "MenuItem" to distinguish
+        // Proprietati comune mapate din procedura stocata GetFullMenuDetails
+        public int ItemId { get; set; } // Corespunde ItemId din SP
+        public string ItemName { get; set; } // Corespunde ItemName din SP
+        public decimal ItemPrice { get; set; } // Corespunde ItemPrice din SP
+        public string? ItemPhotoPath { get; set; } // Corespunde ItemPhotoPath din SP
+        public string ItemType { get; set; } // Corespunde ItemType din SP ("Dish" or "MenuItem")
 
-        // Reference to the original entity (optional, but useful)
-        public Dish OriginalDish { get; set; } = null;
-        public MenuItem OriginalMenuItem { get; set; } = null;
+        // Proprietati noi pentru informatii suplimentare mapate din SP
+        public string? QuantityDisplay { get; set; } // Corespunde QuantityDisplay din SP
+        public string? AllergensString { get; set; } // Corespunde AllergensString din SP
+        public string? MenuItemComponentsString { get; set; } // Corespunde MenuItemComponentsString din SP (NULL pentru Dish)
+
+        // Proprietati pentru maparea CategoryId si CategoryName din SP (utile pentru grupare)
+        public int CategoryId { get; set; }
+        public string CategoryName { get; set; } = string.Empty;
 
 
-        // Constructor for a Dish
+        // Reference to the original entity (optional, might not be needed if all data comes from SP)
+        // public Dish? OriginalDish { get; set; } = null;
+        // public MenuItem? OriginalMenuItem { get; set; } = null;
+
+
+        // Constructor gol pentru maparea din rezultatul procedurii stocate
+        public DisplayMenuItem()
+        {
+            // Acest constructor este folosit de EF Core sau alte metode de mapare
+            // atunci cand se mapeaza rezultatul unui query/SP la acest tip.
+        }
+
+        // Poti pastra constructorii originali daca ii folosesti in alte parti, dar pentru LoadMenuData
+        // vei mapa direct din rezultatul SP-ului in obiecte DisplayMenuItem noi.
+        /*
+        // Constructor pentru un Dish
         public DisplayMenuItem(Dish dish)
         {
             if (dish == null) throw new ArgumentNullException(nameof(dish));
 
-            Id = dish.Id;
-            Name = dish.Name;
-            Price = dish.Price;
-            PhotoPath = dish.PhotoPath;
+            ItemId = dish.Id;
+            ItemName = dish.Name;
+            ItemPrice = dish.Price;
+            ItemPhotoPath = dish.PhotoPath;
             ItemType = "Dish";
-            OriginalDish = dish;
+            // OriginalDish = dish; // Daca pastrezi referinta
+
+            QuantityDisplay = $"{dish.Quantity}g";
+            // Alergenii si componentele vor fi setate ulterior
+            AllergensString = "Incarcare alergeni...";
+            MenuItemComponentsString = null;
         }
 
-        // Constructor for a MenuItem (Meniu)
+        // Constructor pentru un MenuItem (Meniu)
         public DisplayMenuItem(MenuItem menuItem)
         {
             if (menuItem == null) throw new ArgumentNullException(nameof(menuItem));
 
-            Id = menuItem.Id;
-            Name = menuItem.Name;
-            Price = menuItem.Price;
-            PhotoPath = menuItem.PhotoPath;
-            ItemType = "MenuItem"; // Use "MenuItem" to distinguish from "Dish"
-            OriginalMenuItem = menuItem;
-        }
+            ItemId = menuItem.Id;
+            ItemName = menuItem.Name;
+            ItemPrice = menuItem.Price;
+            ItemPhotoPath = menuItem.PhotoPath;
+            ItemType = "MenuItem";
+            // OriginalMenuItem = menuItem; // Daca pastrezi referinta
 
-        // You could add other properties here, like:
-        // public string Description { get; set; } // If you add Description to MenuItem later
-        // public string AllergensInfo { get; set; } // If you want to display allergen info here
-        // public ICommand AddToCartCommand { get; set; } // If you add add-to-cart functionality later
+            QuantityDisplay = "Meniu";
+            // Alergenii si componentele vor fi setate ulterior
+            AllergensString = "Incarcare alergeni...";
+            MenuItemComponentsString = "Incarcare componente...";
+        }
+        */
+
 
         // Override ToString for debugging or simple display
         public override string ToString()
         {
-            return $"{Name} ({ItemType}) - {Price:C2}";
+            return $"{ItemName} ({ItemType}) - {ItemPrice:C2}";
         }
     }
 }

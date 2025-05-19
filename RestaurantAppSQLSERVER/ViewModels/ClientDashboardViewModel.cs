@@ -9,6 +9,7 @@ using System.Linq;
 using System.Diagnostics;
 using System.Collections.Generic;
 using System.ComponentModel; // Adaugat pentru IPropertyChangedEvent
+using Microsoft.EntityFrameworkCore; // Necesara pentru FromSqlInterpolated
 
 namespace RestaurantAppSQLSERVER.ViewModels
 {
@@ -29,9 +30,9 @@ namespace RestaurantAppSQLSERVER.ViewModels
                 OnPropertyChanged(nameof(IsGuest));
                 // Notifica UI-ul ca starea de invitat s-a schimbat, afectand vizibilitatea/starea unor controale
                 CommandManager.InvalidateRequerySuggested();
-                // Notificare explicita pentru command-uri care depind de IsGuest (ex: ShowClientOrdersCommand, AddToCartCommand)
-                // Verifica daca ShowClientOrdersCommand NU este null inainte de a apela RaiseCanExecuteChanged
+                // Notificare explicita pentru command-uri care depind de IsGuest (ex: ShowClientOrdersCommand, AddToCartCommand, ShowLoginCommand)
                 ((RelayCommand)ShowClientOrdersCommand)?.RaiseCanExecuteChanged();
+                ((RelayCommand)ShowLoginCommand)?.RaiseCanExecuteChanged(); // Notifica si ShowLoginCommand
                 // TODO: Adauga RaiseCanExecuteChanged() pentru AddToCartCommand cand il implementezi
                 // ((RelayCommand)AddToCartCommand)?.RaiseCanExecuteChanged();
             }
@@ -84,9 +85,11 @@ namespace RestaurantAppSQLSERVER.ViewModels
         // TODO: Adauga ICommand pentru adaugare in cos (AddToCartCommand)
 
 
-        private readonly CategoryService _categoryService;
-        private readonly DishService _dishService;
-        private readonly MenuItemService _menuItemService; // Serviciul principal pentru MenuItem (Meniu)
+        // Serviciile necesare (injectate) - Pastram referintele chiar daca folosim SP pentru incarcarea meniului
+        // Daca vei folosi SP pentru Plasare Comanda, vei avea nevoie de OrderService
+        private readonly CategoryService _categoryService; // Inca util pentru alte operatii sau daca nu folosesti SP complet
+        private readonly DishService _dishService; // Inca util pentru alte operatii
+        private readonly MenuItemService _menuItemService; // Inca util pentru alte operatii
         private readonly MainViewModel _mainViewModel; // Referenta catre MainViewModel pentru navigare/logout
 
 
@@ -94,41 +97,44 @@ namespace RestaurantAppSQLSERVER.ViewModels
         public ClientDashboardViewModel() : this(null, null, null, null, null)
         {
             Debug.WriteLine("ClientDashboardViewModel created for Design Time.");
-            // Poti adauga aici date mock pentru a vedea ceva in designer
+            // Poti adauga date mock aici pentru a vedea ceva in designer
             // LoggedInUser = new User { Nume = "Client Mock" }; // Foloseste Nume conform entitatii User
             // IsGuest = false; // Seteaza starea pentru design-time daca vrei sa vezi UI-ul de client
             // Initializeaza colectia pentru design time
-            // MenuCategories = new ObservableCollection<CategoryDisplayWrapper>();
-            // MenuCategories.Add(new CategoryDisplayWrapper(new Category { Name = "Mock Categorie 1" }));
-            // MenuCategories[0].DisplayItems.Add(new DisplayMenuItem(new Dish { Name = "Mock Dish 1", Price = 10m }));
+            MenuCategories = new ObservableCollection<CategoryDisplayWrapper>();
+            var mockCategory = new CategoryDisplayWrapper(new Category { Name = "Mock Categorie 1" });
+            // Foloseste constructorul gol al DisplayMenuItem pentru a crea obiecte mock
+            mockCategory.DisplayItems.Add(new DisplayMenuItem { ItemName = "Mock Dish 1", ItemPrice = 10m, ItemType = "Dish", QuantityDisplay = "250g", AllergensString = "Gluten" });
+            mockCategory.DisplayItems.Add(new DisplayMenuItem { ItemName = "Mock Meniu 1", ItemPrice = 25m, ItemType = "MenuItem", QuantityDisplay = "Meniu", MenuItemComponentsString = "1x Mock Dish 1; 1x Mock Dish 2", AllergensString = "Gluten, Lactoza" });
+            MenuCategories.Add(mockCategory);
         }
 
 
         // Constructorul principal - folosit la RULARE
+        // Adaugam un parametru boolean isGuest
         public ClientDashboardViewModel(User loggedInUser, CategoryService categoryService, DishService dishService, MenuItemService menuItemService, MainViewModel mainViewModel)
         {
-            _categoryService = categoryService ?? throw new ArgumentNullException(nameof(categoryService));
-            _dishService = dishService ?? throw new ArgumentNullException(nameof(dishService));
-            _menuItemService = menuItemService ?? throw new ArgumentNullException(nameof(menuItemService)); // Injecteaza MenuItemService
-            _mainViewModel = mainViewModel ?? throw new ArgumentNullException(nameof(mainViewModel));
-
-
-            // Initializeaza colectia
+            // Initializeaza colectia INAINTE de a seta LoggedInUser
             MenuCategories = new ObservableCollection<CategoryDisplayWrapper>();
 
             // Initializeaza command-urile PRIMA DATA
-            // Adauga CanExecute pentru a dezactiva butonul "Comenzile Mele" pentru invitati
             ShowClientOrdersCommand = new RelayCommand(ExecuteShowClientOrders, CanExecuteShowClientOrders);
             LogoutCommand = new RelayCommand(ExecuteLogout);
             // Initializeaza noul command pentru a reveni la Login
-            ShowLoginCommand = new RelayCommand(ExecuteShowLogin);
+            ShowLoginCommand = new RelayCommand(ExecuteShowLogin, CanExecuteShowLogin); // Adauga CanExecute si pentru ShowLoginCommand
             // TODO: Initializeaza AddToCartCommand cu CanExecute
             // AddToCartCommand = new RelayCommand(ExecuteAddToCart, CanExecuteAddToCart);
 
-
-            // Acum seteaza utilizatorul autentificat (aceasta va apela setter-ul IsGuest FARA eroare)
+            // Seteaza utilizatorul autentificat (aceasta va apela setter-ul IsGuest)
             LoggedInUser = loggedInUser;
             // Starea IsGuest este setata automat in setter-ul LoggedInUser
+
+            // Injecteaza serviciile (chiar daca folosim SP pentru incarcarea meniului, serviciile pot fi utile pentru alte operatii)
+            _categoryService = categoryService ?? throw new ArgumentNullException(nameof(categoryService));
+            _dishService = dishService ?? throw new ArgumentNullException(nameof(dishService));
+            _menuItemService = menuItemService ?? throw new ArgumentNullException(nameof(menuItemService));
+            _mainViewModel = mainViewModel ?? throw new ArgumentNullException(nameof(mainViewModel));
+
 
             // Incarca datele meniului la initializarea ViewModel-ului
             Task.Run(async () => await LoadMenuData());
@@ -162,6 +168,13 @@ namespace RestaurantAppSQLSERVER.ViewModels
             _mainViewModel.ShowLoginView(); // Apeleaza metoda de navigare din MainViewModel
         }
 
+        // Metoda CanExecute pentru ShowLoginCommand (activ doar pentru invitati)
+        private bool CanExecuteShowLogin(object parameter)
+        {
+            // Command-ul este activ doar daca utilizatorul ESTE invitat
+            return IsGuest;
+        }
+
 
         // TODO: Implementeaza ExecuteAddToCart(object parameter) si CanExecuteAddToCart(object parameter)
         /*
@@ -171,8 +184,8 @@ namespace RestaurantAppSQLSERVER.ViewModels
             if (parameter is DisplayMenuItem item)
             {
                 // TODO: Adauga item-ul in cos (o colectie in ViewModel sau un alt serviciu)
-                Debug.WriteLine($"Added {item.Name} to cart.");
-                SuccessMessage = $"{item.Name} a fost adaugat in cos.";
+                Debug.WriteLine($"Added {item.ItemName} to cart."); // Foloseste ItemName
+                SuccessMessage = $"{item.ItemName} a fost adaugat in cos.";
             }
         }
 
@@ -184,7 +197,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
         */
 
 
-        // --- Metoda pentru incarcarea datelor meniului ---
+        // --- Metoda pentru incarcarea datelor meniului folosind Procedura Stocata ---
 
         private async Task LoadMenuData()
         {
@@ -192,69 +205,50 @@ namespace RestaurantAppSQLSERVER.ViewModels
             SuccessMessage = string.Empty;
             try
             {
-                // Verifica daca serviciile sunt null (cazul design-time)
-                if (_categoryService == null || _dishService == null || _menuItemService == null)
+                // Folosim DbContextFactory pentru a crea un context nou
+                // Accesam _dbContextFactory prin MainViewModel (acum este public)
+                using (var context = _mainViewModel._dbContextFactory.CreateDbContext())
                 {
-                    Debug.WriteLine("Running in design-time context, cannot load real menu data.");
-                    // Poti adauga date mock aici pentru design-time
-                    // Adauga date mock in colectia de tip CategoryDisplayWrapper
-                    // MenuCategories.Clear();
-                    // var mockCategory = new CategoryDisplayWrapper(new Category { Name = "Mock Categorie 1" });
-                    // mockCategory.DisplayItems.Add(new DisplayMenuItem(new Dish { Name = "Mock Dish 1", Price = 10m }));
-                    // MenuCategories.Add(mockCategory);
-                    return;
-                }
+                    // Apeleaza procedura stocata GetFullMenuDetails
+                    // Mapam rezultatele la o lista de obiecte DisplayMenuItem
+                    var menuItemsData = await context.Set<DisplayMenuItem>() // Folosim Set<DisplayMenuItem>() pentru a mapa la un tip fara cheie
+                                                   .FromSqlRaw("EXEC GetFullMenuDetails") // Apelam procedura stocata bruta
+                                                   .ToListAsync(); // Executa query-ul si aduce rezultatele
 
-                // 1. Incarca toate Categoriile
-                var categories = await _categoryService.GetAllCategoriesAsync();
+                    // Organizeaza datele pe categorii
+                    var categoriesWithItems = new ObservableCollection<CategoryDisplayWrapper>();
 
-                // 2. Incarca toate Preparatele (Dish) - asigura-te ca serviciul le include si Categoria
-                var dishes = await _dishService.GetAllDishesAsync(); // Asigura-te ca GetAllDishesAsync include Category
+                    // Gruparea se face acum in C# pe baza CategoryId si CategoryName returnate de SP
+                    var groupedItems = menuItemsData.GroupBy(item => new { item.CategoryId, item.CategoryName });
 
-                // 3. Incarca toate Meniurile (MenuItem) - asigura-te ca serviciul le include si Categoria si MenuItemDishes (si Dish-urile din ele daca este necesar)
-                var menuItems = await _menuItemService.GetAllMenuItemsAsync(); // Asigura-te ca GetAllMenuItemsAsync include Category
-
-
-                // Organizeaza Preparatele si Meniurile pe categorii
-                var categoriesWithItems = new ObservableCollection<CategoryDisplayWrapper>();
-
-                foreach (var category in categories)
-                {
-                    var categoryWrapper = new CategoryDisplayWrapper(category);
-
-                    // Adauga preparatele din aceasta categorie
-                    var dishesInCategory = dishes.Where(d => d.CategoryId == category.Id).ToList();
-                    foreach (var dish in dishesInCategory)
+                    foreach (var group in groupedItems)
                     {
-                        categoryWrapper.DisplayItems.Add(new DisplayMenuItem(dish));
-                    }
+                        // Creeaza un wrapper pentru fiecare categorie
+                        // Asiguram ca Category este initializat corect
+                        var categoryWrapper = new CategoryDisplayWrapper(new Category { Id = group.Key.CategoryId, Name = group.Key.CategoryName });
 
-                    // Adauga meniurile din aceasta categorie
-                    var menuItemsInCategory = menuItems.Where(mi => mi.CategoryId == category.Id).ToList();
-                    foreach (var menuItem in menuItemsInCategory)
-                    {
-                        categoryWrapper.DisplayItems.Add(new DisplayMenuItem(menuItem));
-                    }
+                        // Adauga itemii (Dish/MenuItem) din grupul curent la wrapper-ul categoriei
+                        foreach (var item in group.OrderBy(item => item.ItemName)) // Ordoneaza itemii in cadrul categoriei
+                        {
+                            categoryWrapper.DisplayItems.Add(item); // Adauga direct obiectul DisplayMenuItem mapat din SP
+                        }
 
-                    // Adauga wrapper-ul categoriei la colectia principala DOAR daca are itemi
-                    if (categoryWrapper.DisplayItems.Any())
-                    {
+                        // Adauga wrapper-ul categoriei la colectia principala
                         categoriesWithItems.Add(categoryWrapper);
                     }
+
+                    // Sorteaza categoriile (optional)
+                    MenuCategories = new ObservableCollection<CategoryDisplayWrapper>(categoriesWithItems.OrderBy(c => c.Category.Name));
+
+                    OnPropertyChanged(nameof(MenuCategories)); // Notifica View-ul ca s-a schimbat colectia
+
+                    SuccessMessage = "Meniul a fost incarcat cu succes.";
                 }
-
-                // Seteaza colectia principala a ViewModel-ului
-                // FIX: Atribuie colectia nou creata proprietatii
-                MenuCategories = categoriesWithItems;
-                OnPropertyChanged(nameof(MenuCategories)); // Notifica View-ul ca s-a schimbat colectia
-
-
-                SuccessMessage = "Meniul a fost incarcat cu succes.";
             }
             catch (Exception ex)
             {
                 ErrorMessage = $"Eroare la incarcarea meniului: {ex.Message}";
-                Debug.WriteLine($"Eroare la incarcarea meniului: {ex.Message}");
+                Debug.WriteLine($"Eroare la incarcarea meniului (SP): {ex.Message}");
             }
         }
     }
@@ -266,9 +260,17 @@ namespace RestaurantAppSQLSERVER.ViewModels
         public Category Category { get; set; }
         public ObservableCollection<Models.Wrappers.DisplayMenuItem> DisplayItems { get; set; } // Use the DisplayMenuItem wrapper
 
+        // Constructor principal
         public CategoryDisplayWrapper(Category category)
         {
             Category = category ?? throw new ArgumentNullException(nameof(category));
+            DisplayItems = new ObservableCollection<Models.Wrappers.DisplayMenuItem>();
+        }
+
+        // Constructor gol pentru design time sau mapare (optional)
+        public CategoryDisplayWrapper()
+        {
+            Category = new Category(); // Initializeaza Category
             DisplayItems = new ObservableCollection<Models.Wrappers.DisplayMenuItem>();
         }
     }

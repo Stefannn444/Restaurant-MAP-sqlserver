@@ -15,6 +15,9 @@
 
     <UserControl.Resources>
         <conv:PathToImageSourceConverter x:Key="ImageConverter"/>
+        <conv:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
+
+
     </UserControl.Resources>
 
     <Grid>
@@ -70,16 +73,37 @@
 
                                                     <Image Grid.Column="0" Width="60" Height="60" Margin="0,0,10,0" Stretch="UniformToFill">
                                                         <Image.Source>
-                                                            <Binding Path="PhotoPath" Converter="{StaticResource ImageConverter}"/>
+                                                            <Binding Path="ItemPhotoPath" Converter="{StaticResource ImageConverter}"/>
                                                         </Image.Source>
                                                     </Image>
 
                                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                        <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14"/>
+                                                        <TextBlock Text="{Binding ItemName}" FontWeight="Bold" FontSize="14"/>
+
+                                                        <TextBlock Text="{Binding QuantityDisplay}"
+                                                                   FontSize="12"
+                                                                   FontStyle="Italic"
+                                                                   Margin="0,2,0,0"
+                                                                   Visibility="{Binding QuantityDisplay, Converter={StaticResource StringToVisibilityConverter}}"/>
+
+
+                                                        <TextBlock Text="{Binding MenuItemComponentsString}"
+                                                                   FontSize="12"
+                                                                   Margin="0,2,0,0"
+                                                                   Visibility="{Binding MenuItemComponentsString, Converter={StaticResource StringToVisibilityConverter}}"/>
+
+
+                                                        <TextBlock Text="{Binding AllergensString, StringFormat='Alergeni: {0}'}"
+                                                                   FontSize="12"
+                                                                   Foreground="Red"
+                                                                   Margin="0,5,0,0"
+                                                                   TextWrapping="Wrap"
+                                                                   Visibility="{Binding AllergensString, Converter={StaticResource StringToVisibilityConverter}}"/>
+
                                                     </StackPanel>
 
                                                     <StackPanel Grid.Column="2" Orientation="Vertical" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                                        <TextBlock Text="{Binding Price, StringFormat='C2'}" FontWeight="Bold" FontSize="14"/>
+                                                        <TextBlock Text="{Binding ItemPrice, StringFormat='C2'}" FontWeight="Bold" FontSize="14"/>
                                                     </StackPanel>
                                                 </Grid>
                                             </Border>

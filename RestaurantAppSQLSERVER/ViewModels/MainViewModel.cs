@@ -12,8 +12,11 @@ namespace RestaurantAppSQLSERVER.ViewModels
     public class MainViewModel : ViewModelBase
     {
         private ViewModelBase _currentViewModel;
+        // Am schimbat nivelul de protectie din internal in public pentru a permite accesul din alte ViewModels
+        public readonly DbContextFactory _dbContextFactory;
+
+
         private readonly UserService _userService;
-        private readonly DbContextFactory _dbContextFactory;
         private readonly DishService _dishService;
         private readonly CategoryService _categoryService; // Serviciul pentru Categorii
         private readonly AllergenService _allergenService; // Serviciul pentru Alergeni
@@ -56,12 +59,13 @@ namespace RestaurantAppSQLSERVER.ViewModels
             CurrentViewModel = new LoginViewModel(_userService, this);
         }
 
+        // Metoda pentru a arata View-ul de Register
         public void ShowRegisterView()
         {
-            // Va trebui să implementezi RegisterViewModel și să-l instanțiezi aici
-            // CurrentViewModel = new RegisterViewModel(_userService, this);
-            // Placeholder temporar:
+            // Instanțiază RegisterViewModel și setează-l ca ViewModel curent
             CurrentViewModel = new RegisterViewModel(_userService, this);
+            // Eliminați linia cu PlaceholderViewModel
+            // CurrentViewModel = new PlaceholderViewModel("Register View");
         }
 
         // Metoda pentru a arata Dashboard-ul Angajatului
@@ -86,6 +90,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
             // Seteaza utilizatorul autentificat
             LoggedInUser = user;
             // Creeaza ClientDashboardViewModel, pasand userul autentificat (NU este invitat)
+            // Pasam si DbContextFactory catre ClientDashboardViewModel pentru a putea apela SP-ul
             CurrentViewModel = new ClientDashboardViewModel(LoggedInUser, _categoryService, _dishService, _menuItemService, this);
         }
 
@@ -95,6 +100,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
             // Seteaza utilizatorul autentificat la null pentru sesiunea de invitat
             LoggedInUser = null;
             // Creeaza ClientDashboardViewModel, pasand null pentru user (ESTE invitat)
+            // Pasam si DbContextFactory catre ClientDashboardViewModel pentru a putea apela SP-ul
             CurrentViewModel = new ClientDashboardViewModel(null, _categoryService, _dishService, _menuItemService, this);
         }
 
