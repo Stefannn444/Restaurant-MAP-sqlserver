@@ -110,7 +110,8 @@ namespace RestaurantAppSQLSERVER.ViewModels
             // Creeaza ClientDashboardViewModel, pasand userul autentificat (NU este invitat)
             // Pasam si DbContextFactory catre ClientDashboardViewModel pentru a putea apela SP-ul
             // Pasam si IConfiguration
-            CurrentViewModel = new ClientDashboardViewModel(LoggedInUser, _categoryService, _dishService, _menuItemService, _orderService, this, _configuration);
+            // CORECTAT: Adaugat _allergenService si _configuration
+            CurrentViewModel = new ClientDashboardViewModel(LoggedInUser, _categoryService, _dishService, _menuItemService, _orderService, _allergenService, this, _configuration);
         }
 
         // Metoda pentru a arata Dashboard-ul Clientului (pentru invitati)
@@ -121,10 +122,11 @@ namespace RestaurantAppSQLSERVER.ViewModels
             // Creeaza ClientDashboardViewModel, pasand null pentru user (ESTE invitat)
             // Pasam si DbContextFactory catre ClientDashboardViewModel pentru a putea apela SP-ul
             // Pasam si IConfiguration
-            CurrentViewModel = new ClientDashboardViewModel(null, _categoryService, _dishService, _menuItemService, _orderService, this, _configuration);
+            // CORECTAT: Adaugat _allergenService si _configuration
+            CurrentViewModel = new ClientDashboardViewModel(null, _categoryService, _dishService, _menuItemService, _orderService, _allergenService, this, _configuration);
         }
 
-        // --- NOU: Metoda pentru a arata View-ul cu istoricul comenzilor clientului ---
+        // Metoda pentru a arata View-ul cu istoricul comenzilor clientului
         public void ShowClientOrdersView(User user)
         {
             if (user == null)

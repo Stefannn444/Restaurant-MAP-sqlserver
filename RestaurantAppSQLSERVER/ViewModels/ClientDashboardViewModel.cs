@@ -19,8 +19,15 @@ namespace RestaurantAppSQLSERVER.ViewModels
     // ViewModel principal pentru Dashboard-ul Clientului (si Invitatului)
     public class ClientDashboardViewModel : ViewModelBase
     {
-        // Colectie pentru afisarea meniului grupat pe categorii
+        // Colectie pentru afisarea meniului grupat pe categorii (aceasta va fi cea filtrata)
         public ObservableCollection<CategoryDisplayWrapper> MenuCategories { get; set; }
+
+        // Colectie privata pentru a pastra meniul complet nefiltrat
+        private List<CategoryDisplayWrapper> _fullMenuCategories;
+
+        // Colectie pentru alergeni (pentru filtrare)
+        public ObservableCollection<Allergen> Allergens { get; set; }
+
 
         // --- Proprietati si Colectii pentru COSUL DE CUMPARATURI ---
         // Colectie pentru itemii din cos
@@ -145,11 +152,94 @@ namespace RestaurantAppSQLSERVER.ViewModels
             }
         }
 
+        // --- Proprietati pentru functionalitatea de cautare ---
+        private string _searchText;
+        public string SearchText
+        {
+            get => _searchText;
+            set
+            {
+                _searchText = value;
+                OnPropertyChanged(nameof(SearchText));
+                // Optional: declanseaza cautarea automat la fiecare modificare a textului
+                // ExecuteSearch(null);
+            }
+        }
+
+        private SearchType _selectedSearchType;
+        public SearchType SelectedSearchType
+        {
+            get => _selectedSearchType;
+            set
+            {
+                _selectedSearchType = value;
+                OnPropertyChanged(nameof(SelectedSearchType));
+                // Curata textul de cautare si alergenul selectat cand se schimba tipul de cautare
+                SearchText = string.Empty;
+                SelectedAllergen = null;
+                // Optional: declanseaza cautarea automat cand se schimba tipul
+                // ExecuteSearch(null);
+            }
+        }
+
+        private Allergen _selectedAllergen;
+        public Allergen SelectedAllergen
+        {
+            get => _selectedAllergen;
+            set
+            {
+                _selectedAllergen = value;
+                OnPropertyChanged(nameof(SelectedAllergen));
+                // Optional: declanseaza cautarea automat cand se schimba alergenul
+                // ExecuteSearch(null);
+            }
+        }
+
+        private bool _includeAllergen = true; // True pentru "Contine", False pentru "Nu contine" pentru alergeni
+        public bool IncludeAllergen
+        {
+            get => _includeAllergen;
+            set
+            {
+                _includeAllergen = value;
+                OnPropertyChanged(nameof(IncludeAllergen));
+                // Optional: declanseaza cautarea automat cand se schimba optiunea include/exclude
+                // ExecuteSearch(null);
+            }
+        }
+
+        // NOU: Proprietate pentru optiunea "Contine" / "Nu contine" pentru cautarea dupa nume
+        private bool _includeName = true; // True pentru "Contine", False pentru "Nu contine" pentru nume
+        public bool IncludeName
+        {
+            get => _includeName;
+            set
+            {
+                _includeName = value;
+                OnPropertyChanged(nameof(IncludeName));
+                // Optional: declanseaza cautarea automat cand se schimba optiunea include/exclude
+                // ExecuteSearch(null);
+            }
+        }
+
+
+        // Enum pentru tipurile de cautare
+        public enum SearchType
+        {
+            Nume,
+            Alergen
+        }
+        // --- SFARSIT Proprietati pentru functionalitatea de cautare ---
+
+
         // Command-uri pentru navigare (ex: catre sectiunea Comenzi Client)
         public ICommand ShowClientOrdersCommand { get; }
         public ICommand LogoutCommand { get; } // Command pentru Logout
         // Noul Command pentru a naviga inapoi la Login (pentru invitati)
         public ICommand ShowLoginCommand { get; }
+        // Command pentru a declansa cautarea
+        public ICommand SearchCommand { get; }
+
 
         // --- Command-uri pentru COS si Comanda ---
         public ICommand AddToCartCommand { get; } // Command pentru adaugare in cos
@@ -163,25 +253,38 @@ namespace RestaurantAppSQLSERVER.ViewModels
         private readonly DishService _dishService;
         private readonly MenuItemService _menuItemService; // Serviciul principal pentru MenuItem (Meniu)
         private readonly OrderService _orderService; // Serviciul pentru Comenzi - ACUM IL FOLOSIM PENTRU PLACEORDER
+        private readonly AllergenService _allergenService; // NOU: Serviciul pentru Alergeni
         private readonly MainViewModel _mainViewModel; // Referenta catre MainViewModel pentru navigare/logout
         private readonly IConfiguration _configuration; // Injecteaza configuratia pentru a citi din appsettings.json
 
 
         // Constructor PUBLIC FARA PARAMETRI - DOAR PENTRU DESIGN TIME
-       /* public ClientDashboardViewModel() : this(null, null, null, null, null, null) // Adaugat un null pentru IConfiguration
+        public ClientDashboardViewModel() : this(null, null, null, null, null, null, null, null) // Adaugat un null pentru AllergenService si IConfiguration
         {
             Debug.WriteLine("ClientDashboardViewModel created for Design Time.");
             // Poti adauga date mock aici pentru a vedea ceva in designer
             // Initializeaza colectiile pentru design time
             MenuCategories = new ObservableCollection<CategoryDisplayWrapper>();
+            _fullMenuCategories = new List<CategoryDisplayWrapper>(); // Initializeaza si lista completa mock
             ShoppingCart = new ObservableCollection<CartItem>();
+            Allergens = new ObservableCollection<Allergen>(); // Initializeaza alergenii mock
+
             var mockCategory = new CategoryDisplayWrapper(new Category { Name = "Mock Categorie 1" });
             // Foloseste constructorul gol al DisplayMenuItem pentru a crea obiecte mock
-            var mockDish = new DisplayMenuItem { ItemId = 1, ItemName = "Mock Dish 1", ItemPrice = 10m, ItemType = "Dish", QuantityDisplay = "250g", AllergensString = "Gluten" };
-            var mockMenuItem = new DisplayMenuItem { ItemId = 10, ItemName = "Mock Meniu 1", ItemPrice = 25m, ItemType = "MenuItem", QuantityDisplay = "Meniu", MenuItemComponentsString = "1x Mock Dish 1; 1x Mock Dish 2", AllergensString = "Gluten, Lactoza" };
+            var mockDish = new DisplayMenuItem { ItemId = 1, ItemName = "Mock Dish 1", ItemPrice = 10m, ItemType = "Dish", QuantityDisplay = "250g", AllergensString = "Gluten, Lactoza" };
+            var mockMenuItem = new DisplayMenuItem { ItemId = 10, ItemName = "Mock Meniu 1", ItemPrice = 25m, ItemType = "MenuItem", QuantityDisplay = "Meniu", MenuItemComponentsString = "1x Mock Dish 1; 1x Mock Dish 2", AllergensString = "Gluten, Nuci" };
             mockCategory.DisplayItems.Add(mockDish);
             mockCategory.DisplayItems.Add(mockMenuItem);
             MenuCategories.Add(mockCategory);
+            _fullMenuCategories.Add(mockCategory); // Adauga si la lista completa mock
+
+            Allergens.Add(new Allergen { Id = 1, Name = "Gluten" });
+            Allergens.Add(new Allergen { Id = 2, Name = "Lactoza" });
+            Allergens.Add(new Allergen { Id = 3, Name = "Nuci" });
+
+            // Seteaza tipul de cautare implicit pentru design time
+            SelectedSearchType = SearchType.Nume;
+
 
             // Adauga itemi mock in cos pentru design time
             ShoppingCart.Add(new CartItem(mockDish, 2)); // 2 bucati din Mock Dish 1
@@ -192,15 +295,17 @@ namespace RestaurantAppSQLSERVER.ViewModels
             TransportCost = 15.00m;
             CalculateFinalTotals(); // Calculeaza totalul mock
         }
-*/
+
 
         // Constructorul principal - folosit la RULARE
         // Adaugam un parametru boolean isGuest
-        public ClientDashboardViewModel(User loggedInUser, CategoryService categoryService, DishService dishService, MenuItemService menuItemService, OrderService orderService, MainViewModel mainViewModel, IConfiguration configuration) // Injecteaza IConfiguration
+        public ClientDashboardViewModel(User loggedInUser, CategoryService categoryService, DishService dishService, MenuItemService menuItemService, OrderService orderService, AllergenService allergenService, MainViewModel mainViewModel, IConfiguration configuration) // Injecteaza AllergenService si IConfiguration
         {
             // Initializeaza colectiile INAINTE de a seta LoggedInUser
             MenuCategories = new ObservableCollection<CategoryDisplayWrapper>();
+            _fullMenuCategories = new List<CategoryDisplayWrapper>(); // Initializeaza lista completa
             ShoppingCart = new ObservableCollection<CartItem>(); // Initializeaza cosul
+            Allergens = new ObservableCollection<Allergen>(); // Initializeaza colectia de alergeni
 
             // Initializeaza command-urile PRIMA DATA
             ShowClientOrdersCommand = new RelayCommand(ExecuteShowClientOrders, CanExecuteShowClientOrders);
@@ -210,7 +315,8 @@ namespace RestaurantAppSQLSERVER.ViewModels
             AddToCartCommand = new RelayCommand(ExecuteAddToCart, CanExecuteAddToCart); // Adaugat
             RemoveFromCartCommand = new RelayCommand(ExecuteRemoveFromCart); // Adaugat (CanExecute poate fi adaugat ulterior)
             PlaceOrderCommand = new RelayCommand(ExecutePlaceOrder, CanExecutePlaceOrder); // Adaugat
-            // --- SFARSIT Initializeaza Command-urile pentru COS si Comanda ---
+            // --- Initializeaza Command-ul pentru cautare ---
+            SearchCommand = new RelayCommand(ExecuteSearch);
 
 
             // Injecteaza serviciile si configuratia
@@ -218,6 +324,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
             _dishService = dishService ?? throw new ArgumentNullException(nameof(dishService));
             _menuItemService = menuItemService ?? throw new ArgumentNullException(nameof(menuItemService));
             _orderService = orderService ?? throw new ArgumentNullException(nameof(orderService)); // Injecteaza OrderService
+            _allergenService = allergenService ?? throw new ArgumentNullException(nameof(allergenService)); // NOU: Injecteaza AllergenService
             _mainViewModel = mainViewModel ?? throw new ArgumentNullException(nameof(mainViewModel));
             _configuration = configuration ?? throw new ArgumentNullException(nameof(_configuration)); // Injecteaza IConfiguration
 
@@ -226,8 +333,11 @@ namespace RestaurantAppSQLSERVER.ViewModels
             LoggedInUser = loggedInUser;
             // Starea IsGuest este setata automat in setter-ul LoggedInUser
 
-            // Incarca datele meniului la initializarea ViewModel-ului
-            Task.Run(async () => await LoadMenuData());
+            // Seteaza tipul de cautare implicit la Nume la pornire
+            SelectedSearchType = SearchType.Nume;
+
+            // Incarca datele meniului si alergenii la initializarea ViewModel-ului
+            Task.Run(async () => await LoadInitialData());
 
             // Calculeaza totalurile initiale (vor fi 0 la pornire)
             CalculateCartSubtotal();
@@ -269,6 +379,23 @@ namespace RestaurantAppSQLSERVER.ViewModels
             // Command-ul este activ doar daca utilizatorul ESTE invitat
             return IsGuest;
         }
+
+        // Metoda de executie pentru SearchCommand
+        private void ExecuteSearch(object parameter)
+        {
+            // Daca parametrul este "Reset", reseteaza campurile de cautare
+            if (parameter is string paramString && paramString == "Reset")
+            {
+                SearchText = string.Empty;
+                SelectedSearchType = SearchType.Nume; // Reseteaza la cautare dupa nume
+                SelectedAllergen = null;
+                IncludeAllergen = true;
+                IncludeName = true; // Reseteaza si optiunea pentru nume
+            }
+
+            FilterMenu(); // Apeleaza metoda de filtrare
+        }
+
 
         // --- Metode pentru Command-urile COS si Comanda ---
 
@@ -389,10 +516,6 @@ namespace RestaurantAppSQLSERVER.ViewModels
                     // CalculateDiscountAndTransport(); // Nu mai apelam aici
                     // CalculateFinalTotals(); // Nu mai apelam aici
                 }
-                else
-                {
-                    ErrorMessage = $"Plasarea comenzii a esuat: {result.Message}";
-                }
             }
             catch (Exception ex)
             {
@@ -508,6 +631,14 @@ namespace RestaurantAppSQLSERVER.ViewModels
             if (CartTotal < 0) CartTotal = 0;
         }
 
+        // --- Metode pentru incarcarea datelor initiale (Meniu si Alergeni) ---
+        private async Task LoadInitialData()
+        {
+            await LoadMenuData();
+            await LoadAllergens();
+        }
+
+
         // --- Metoda pentru incarcarea datelor meniului folosind Procedura Stocata ---
 
         private async Task LoadMenuData()
@@ -535,7 +666,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
                                                    .ToListAsync(); // Executa query-ul si aduce rezultatele
 
                     // Organizeaza datele pe categorii
-                    var categoriesWithItems = new ObservableCollection<CategoryDisplayWrapper>();
+                    var categoriesWithItems = new List<CategoryDisplayWrapper>(); // Folosim List temporar
 
                     // Gruparea se face acum in C# pe baza CategoryId si CategoryName returnate de SP
                     // Folosim o copie a listei pentru a evita modificarea colectiei in timpul iterarii
@@ -563,10 +694,13 @@ namespace RestaurantAppSQLSERVER.ViewModels
                     }
 
                     // Sorteaza categoriile (optional)
+                    _fullMenuCategories = categoriesWithItems.OrderBy(c => c.Category.Name).ToList(); // Stocam meniul complet in lista privata
+
+                    // Afisam initial meniul complet (nefiltrat)
                     App.Current.Dispatcher.Invoke(() =>
                     {
                         MenuCategories.Clear();
-                        foreach (var category in categoriesWithItems.OrderBy(c => c.Category.Name))
+                        foreach (var category in _fullMenuCategories)
                         {
                             MenuCategories.Add(category);
                         }
@@ -582,6 +716,141 @@ namespace RestaurantAppSQLSERVER.ViewModels
                 ErrorMessage = $"Eroare la incarcarea meniului: {ex.Message}";
                 Debug.WriteLine($"Eroare la incarcarea meniului (SP): {ex.Message}");
             }
+        }
+
+        // --- Metoda pentru incarcarea alergenilor ---
+        private async Task LoadAllergens()
+        {
+            try
+            {
+                // Verifica daca AllergenService este disponibil (nu e design-time)
+                if (_allergenService == null)
+                {
+                    Debug.WriteLine("Running in design-time context, cannot load real allergen data.");
+                    return;
+                }
+
+                var allergensList = await _allergenService.GetAllAllergensAsync();
+
+                // Adauga un alergen "implicit" pentru optiunea "Fara Alergen Selectat"
+                // allergensList.Insert(0, new Allergen { Id = 0, Name = "Fara Alergen Selectat" }); // Optional: Adauga un placeholder
+
+                App.Current.Dispatcher.Invoke(() =>
+                {
+                    Allergens.Clear();
+                    foreach (var allergen in allergensList.OrderBy(a => a.Name))
+                    {
+                        Allergens.Add(allergen);
+                    }
+                    // Optional: Selecteaza primul alergen implicit (sau placeholder-ul)
+                    // SelectedAllergen = Allergens.FirstOrDefault();
+                    OnPropertyChanged(nameof(Allergens)); // Notifica View-ul
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error loading allergens: {ex.Message}");
+                // Poti seta un mesaj de eroare specific pentru alergeni daca vrei
+            }
+        }
+
+
+        // --- Metoda pentru filtrarea meniului ---
+        private void FilterMenu()
+        {
+            // Verifica daca meniul complet a fost incarcat
+            if (_fullMenuCategories == null || !_fullMenuCategories.Any())
+            {
+                Debug.WriteLine("Full menu data not loaded yet.");
+                return;
+            }
+
+            // Creeaza o lista temporara pentru a stoca categoriile filtrate
+            var filteredCategories = new List<CategoryDisplayWrapper>();
+
+            // Itereaza prin fiecare categorie din meniul complet
+            foreach (var categoryWrapper in _fullMenuCategories)
+            {
+                // Creeaza un nou wrapper pentru categoria curenta (pentru a nu modifica direct lista completa)
+                var newCategoryWrapper = new CategoryDisplayWrapper(categoryWrapper.Category);
+
+                // Filtreaza itemii din categoria curenta
+                var filteredItems = categoryWrapper.DisplayItems.Where(item =>
+                {
+                    // Logica de filtrare
+                    bool matchesSearch = true; // Presupunem ca item-ul se potriveste initial
+
+                    if (SelectedSearchType == SearchType.Nume)
+                    {
+                        // Filtrare dupa nume
+                        if (!string.IsNullOrWhiteSpace(SearchText))
+                        {
+                            // Verifica daca numele item-ului contine textul de cautare (case-insensitive)
+                            bool nameContainsText = item.ItemName.IndexOf(SearchText, StringComparison.OrdinalIgnoreCase) >= 0;
+
+                            if (IncludeName)
+                            {
+                                // Cautam itemi al caror nume CONTINE textul de cautare
+                                matchesSearch = nameContainsText;
+                            }
+                            else
+                            {
+                                // Cautam itemi al caror nume NU CONTINE textul de cautare
+                                matchesSearch = !nameContainsText;
+                            }
+                        }
+                        // Daca SearchText este gol, toate itemii se potrivesc la filtrarea dupa nume (indiferent de IncludeName)
+                    }
+                    else if (SelectedSearchType == SearchType.Alergen)
+                    {
+                        // Filtrare dupa alergen
+                        if (SelectedAllergen != null)
+                        {
+                            // Verifica daca string-ul de alergeni al item-ului contine numele alergenului selectat
+                            bool containsSelectedAllergen = item.AllergensString != null &&
+                                                            item.AllergensString.IndexOf(SelectedAllergen.Name, StringComparison.OrdinalIgnoreCase) >= 0;
+
+                            if (IncludeAllergen)
+                            {
+                                // Cautam itemi care CONTINE alergenul selectat
+                                matchesSearch = containsSelectedAllergen;
+                            }
+                            else
+                            {
+                                // Cautam itemi care NU CONTINE alergenul selectat
+                                matchesSearch = !containsSelectedAllergen;
+                            }
+                        }
+                        // Daca SelectedAllergen este null, toate itemii se potrivesc la filtrarea dupa alergen
+                    }
+
+                    return matchesSearch; // Returneaza true daca item-ul se potriveste criteriilor de filtrare
+                }).ToList(); // Executa filtrarea si obtine lista de itemi filtrati
+
+                // Adauga itemii filtrati la noul wrapper de categorie
+                foreach (var item in filteredItems.OrderBy(item => item.ItemName)) // Pastram ordinea alfabetica in cadrul categoriei
+                {
+                    newCategoryWrapper.DisplayItems.Add(item);
+                }
+
+
+                // Adauga wrapper-ul de categorie filtrata la lista de categorii filtrate DOAR daca are itemi
+                if (newCategoryWrapper.DisplayItems.Any())
+                {
+                    filteredCategories.Add(newCategoryWrapper);
+                }
+            }
+
+            // Actualizeaza colectia observabila legata de UI (in UI thread)
+            App.Current.Dispatcher.Invoke(() =>
+            {
+                MenuCategories.Clear();
+                foreach (var category in filteredCategories.OrderBy(c => c.Category.Name)) // Pastram ordinea alfabetica a categoriilor
+                {
+                    MenuCategories.Add(category);
+                }
+                OnPropertyChanged(nameof(MenuCategories)); // Notifica View-ul ca s-a schimbat colectia
+            });
         }
     }
 
