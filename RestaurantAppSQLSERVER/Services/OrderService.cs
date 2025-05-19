@@ -138,7 +138,7 @@ namespace RestaurantAppSQLSERVER.Services
             }
         }
 
-        // --- NOU: Metoda pentru a obtine istoricul comenzilor unui client folosind EF Core ---
+        // Metoda pentru a obtine istoricul comenzilor unui client folosind EF Core
         // Returneaza o lista de obiecte Order cu OrderItems incluse
         public async Task<List<Order>> GetClientOrdersAsync(int userId)
         {
@@ -159,6 +159,33 @@ namespace RestaurantAppSQLSERVER.Services
                 {
                     // Gestioneaza erorile
                     Debug.WriteLine($"Error retrieving client orders with EF Core: {ex.Message}");
+                    throw; // Arunca exceptia mai departe
+                }
+            }
+        }
+
+        // --- NOU: Metoda pentru a numara comenzile unui utilizator intr-un interval de timp ---
+        // Aceasta metoda va fi folosita pentru logica de reducere de loialitate
+        public async Task<int> GetOrderCountInTimeFrameAsync(int userId, int timeIntervalDays)
+        {
+            using (var context = _dbContextFactory.CreateDbContext())
+            {
+                try
+                {
+                    // Calculeaza data de inceput a intervalului (acum - timeIntervalDays)
+                    var startDate = DateTime.Now.AddDays(-timeIntervalDays);
+
+                    // Conteaza comenzile utilizatorului plasate incepand cu startDate
+                    var orderCount = await context.Orders
+                                                  .Where(o => o.UserId == userId && o.OrderDate >= startDate)
+                                                  .CountAsync(); // Conteaza numarul de randuri returnate
+
+                    return orderCount;
+                }
+                catch (Exception ex)
+                {
+                    // Gestioneaza erorile
+                    Debug.WriteLine($"Error counting user orders in time frame: {ex.Message}");
                     throw; // Arunca exceptia mai departe
                 }
             }

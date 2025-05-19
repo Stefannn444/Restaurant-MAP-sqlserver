@@ -35,8 +35,13 @@ namespace RestaurantAppSQLSERVER.ViewModels
             {
                 _cartSubtotal = value;
                 OnPropertyChanged(nameof(CartSubtotal));
-                CalculateFinalTotals(); // Recalculeaza totalurile cand subtotalul se schimba
-                                        // Notifica PlaceOrderCommand ca starea CanExecute s-ar putea schimba (cosul nu mai e gol)
+                // CORECTAT: Apelam CalculateDiscountAndTransport() si CalculateFinalTotals() aici
+                // CalculateDiscountAndTransport() va apela CalculateFinalTotals() la final
+                // Acest lucru asigura ca reducerile si totalul se actualizeaza imediat ce subtotalul se schimba (ex: adaugi/elimini itemi)
+                // Nu mai este nevoie sa apelam CalculateFinalTotals() separat in setter.
+                CalculateDiscountAndTransport();
+
+                // Notifica PlaceOrderCommand ca starea CanExecute s-ar putea schimba (cosul nu mai e gol)
                 ((RelayCommand)PlaceOrderCommand)?.RaiseCanExecuteChanged();
             }
         }
@@ -110,6 +115,11 @@ namespace RestaurantAppSQLSERVER.ViewModels
                 // Actualizeaza si starea IsGuest pe baza LoggedInUser
                 // Acest lucru va apela setter-ul IsGuest, care acum verifica daca command-urile sunt initializate
                 IsGuest = (value == null);
+
+                // Daca utilizatorul se schimba (ex: de la invitat la autentificat),
+                // recalculeaza discount-ul si transportul (pentru logica de loialitate)
+                // Ruleaza intr-un Task separat pentru a nu bloca UI-ul
+                Task.Run(() => CalculateDiscountAndTransport());
             }
         }
 
@@ -181,8 +191,8 @@ namespace RestaurantAppSQLSERVER.ViewModels
             DiscountAmount = 2.50m;
             TransportCost = 15.00m;
             CalculateFinalTotals(); // Calculeaza totalul mock
-        }*/
-
+        }
+*/
 
         // Constructorul principal - folosit la RULARE
         // Adaugam un parametru boolean isGuest
@@ -209,7 +219,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
             _menuItemService = menuItemService ?? throw new ArgumentNullException(nameof(menuItemService));
             _orderService = orderService ?? throw new ArgumentNullException(nameof(orderService)); // Injecteaza OrderService
             _mainViewModel = mainViewModel ?? throw new ArgumentNullException(nameof(mainViewModel));
-            _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration)); // Injecteaza IConfiguration
+            _configuration = configuration ?? throw new ArgumentNullException(nameof(_configuration)); // Injecteaza IConfiguration
 
 
             // Acum seteaza utilizatorul autentificat (aceasta va apela setter-ul IsGuest)
@@ -221,8 +231,8 @@ namespace RestaurantAppSQLSERVER.ViewModels
 
             // Calculeaza totalurile initiale (vor fi 0 la pornire)
             CalculateCartSubtotal();
-            CalculateDiscountAndTransport(); // Calculeaza discount si transport initial
-            CalculateFinalTotals();
+            // CalculateDiscountAndTransport(); // Nu mai apelam aici, este apelat din setter-ul CartSubtotal si LoggedInUser
+            // CalculateFinalTotals(); // Nu mai apelam aici, este apelat din CalculateDiscountAndTransport()
         }
 
         // --- Metode pentru Command-uri ---
@@ -247,7 +257,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
             _mainViewModel.Logout(); // Apeleaza metoda Logout din MainViewModel
         }
 
-        // Metoda de executie pentru noul Command ShowLoginCommand (pour les invités)
+        // Metoda de executie pentru noul Command ShowLoginCommand (pentru invitati)
         private void ExecuteShowLogin(object parameter)
         {
             _mainViewModel.ShowLoginView(); // Apeleaza metoda de navigare din MainViewModel
@@ -350,7 +360,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
                 // 1. Calculeaza Reducerea si Transportul pe baza regulilor si setarilor din appsettings.json
                 // Aceasta logica ar putea fi intr-un alt service dedicat (ex: PricingService)
                 // Pentru simplitate, o implementam aici in ViewModel.
-                CalculateDiscountAndTransport(); // Asigura-te ca DiscountAmount si TransportCost sunt calculate corect inainte de apelul SP
+                // CalculateDiscountAndTransport(); // Nu mai apelam aici, este apelat din setter-ul CartSubtotal si LoggedInUser
 
                 // 2. Pregateste lista de OrderItemData pentru SP din itemii din cos
                 var orderItemsData = ShoppingCart.Select(cartItem => new OrderItemData
@@ -375,9 +385,9 @@ namespace RestaurantAppSQLSERVER.ViewModels
                 {
                     SuccessMessage = result.Message + $" Cod comanda: {result.OrderId}"; // Afiseaza ID-ul comenzii returnat de SP
                     ShoppingCart.Clear(); // Goleste cosul dupa plasarea cu succes
-                    CalculateCartSubtotal(); // Reseteaza totalurile
-                    CalculateDiscountAndTransport();
-                    CalculateFinalTotals();
+                    CalculateCartSubtotal(); // Reseteaza totalurile (va declansa recalcularea discount/transport/total)
+                    // CalculateDiscountAndTransport(); // Nu mai apelam aici
+                    // CalculateFinalTotals(); // Nu mai apelam aici
                 }
                 else
                 {
@@ -408,7 +418,8 @@ namespace RestaurantAppSQLSERVER.ViewModels
         }
 
         // Calculeaza reducerea si costul transportului pe baza setarilor si a subtotalului cosului
-        private void CalculateDiscountAndTransport()
+        // Aceasta metoda este acum ASYNC pentru a apela OrderService
+        private async Task CalculateDiscountAndTransport()
         {
             // Citeste setarile din appsettings.json
             // Asigura-te ca ai adaugat pachetul NuGet Microsoft.Extensions.Configuration.Binder
@@ -435,16 +446,39 @@ namespace RestaurantAppSQLSERVER.ViewModels
             }
 
             // Conditia 2: Mai mult de z comenzi in intervalul t de timp (doar pentru utilizatori autentificati)
-            // Aceasta necesita o interogare in baza de date pentru a verifica istoricul comenzilor utilizatorului
-            // Pentru simplitate INITIALA, putem ignora aceasta conditie sau o putem simula.
-            // O implementare reala ar necesita o metoda in OrderService:
-            // bool hasLoyaltyDiscount = await _orderService.HasLoyaltyDiscountAsync(LoggedInUser.Id, loyaltyOrderCountThreshold, loyaltyTimeIntervalDays);
-            // if (hasLoyaltyDiscount) { applyDiscount = true; }
+            // Implementam logica de verificare a istoricului comenzilor aici
+            if (!IsGuest && LoggedInUser != null && _orderService != null) // Verifica daca userul e autentificat si OrderService e disponibil
+            {
+                try
+                {
+                    // Apeleaza OrderService pentru a numara comenzile in intervalul de timp
+                    var recentOrderCount = await _orderService.GetOrderCountInTimeFrameAsync(LoggedInUser.Id, loyaltyTimeIntervalDays);
 
-            // Daca se aplica reducerea, calculeaza suma reducerii
+                    // Daca numarul de comenzi recente depaseste pragul de loialitate
+                    if (recentOrderCount >= loyaltyOrderCountThreshold)
+                    {
+                        applyDiscount = true; // Aplica reducerea de loialitate
+                        Debug.WriteLine($"Loyalty discount applied for user {LoggedInUser.Id}. Orders in last {loyaltyTimeIntervalDays} days: {recentOrderCount}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error checking loyalty discount: {ex.Message}");
+                    // Continua fara a aplica discount-ul de loialitate in caz de eroare
+                }
+            }
+
+
+            // Daca se aplica reducerea (fie prin subtotal, fie prin loialitate)
             if (applyDiscount)
             {
                 calculatedDiscountAmount = CartSubtotal * (discountPercentage / 100m);
+            }
+
+            // Asigura-te ca reducerea calculata nu depaseste subtotalul
+            if (calculatedDiscountAmount > CartSubtotal)
+            {
+                calculatedDiscountAmount = CartSubtotal;
             }
 
             DiscountAmount = calculatedDiscountAmount; // Seteaza suma reducerii calculate
@@ -460,6 +494,9 @@ namespace RestaurantAppSQLSERVER.ViewModels
             }
 
             TransportCost = calculatedTransportCost; // Seteaza costul transportului calculat
+
+            // Recalculeaza totalul final dupa ce discountul si transportul au fost calculate
+            CalculateFinalTotals();
         }
 
 
