@@ -1,11 +1,10 @@
-﻿using RestaurantAppSQLSERVER.Models.Entities;
-using RestaurantAppSQLSERVER.Services;
+﻿using RestaurantAppSQLSERVER.Services;
+using RestaurantAppSQLSERVER.Models.Entities;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.ComponentModel;
 using System.Threading.Tasks;
-using System.Windows.Input;
+using System.Windows.Input; // For ICommand
+using System.Diagnostics; // For Debug.WriteLine
 
 namespace RestaurantAppSQLSERVER.ViewModels
 {
@@ -19,26 +18,20 @@ namespace RestaurantAppSQLSERVER.ViewModels
             {
                 _email = value;
                 OnPropertyChanged(nameof(Email));
-                // Notifică command-ul de login că starea CanExecute s-ar putea schimba
-                // Necesită casting la RelayCommand pentru a accesa metoda RaiseCanExecuteChanged
+                // Trigger CanExecute check for LoginCommand when Email changes
                 ((RelayCommand)LoginCommand).RaiseCanExecuteChanged();
             }
         }
 
         private string _password;
-        // Notă: Binding-ul la PasswordBox.Password este problematic în WPF din motive de securitate.
-        // O soluție standard implică Attached Properties sau code-behind.
-        // Pentru simplitate în acest proiect școlar, vom folosi un string,
-        // dar reține că într-o aplicație reală ai vrea să gestionezi parolele mai sigur.
         public string Password
         {
             get => _password;
             set
             {
                 _password = value;
-                OnPropertyChanged(nameof(Password)); // Numele proprietății este corect aici
-                // Notifică command-ul de login că starea CanExecute s-ar putea schimba
-                // Necesită casting la RelayCommand pentru a accesa metoda RaiseCanExecuteChanged
+                OnPropertyChanged(nameof(Password));
+                // Trigger CanExecute check for LoginCommand when Password changes
                 ((RelayCommand)LoginCommand).RaiseCanExecuteChanged();
             }
         }
@@ -54,70 +47,90 @@ namespace RestaurantAppSQLSERVER.ViewModels
             }
         }
 
-        // Declaram command-ul ca ICommand, dar il initializam cu RelayCommand
+        // Command pentru Login
         public ICommand LoginCommand { get; }
-        public ICommand NavigateToRegisterCommand { get; }
+        // Command pentru a naviga la pagina de Register (daca o implementezi)
+        public ICommand ShowRegisterCommand { get; } // Declarat
+        // Noul Command pentru "Continue as Guest"
+        public ICommand ContinueAsGuestCommand { get; }
+
 
         private readonly UserService _userService;
-        private readonly MainViewModel _mainViewModel; // Referință către MainViewModel pentru navigare
+        private readonly MainViewModel _mainViewModel; // Referinta catre MainViewModel pentru navigare
 
+        // Constructor pentru Design Time (fara parametri)
+        public LoginViewModel() : this(null, null)
+        {
+            Debug.WriteLine("LoginViewModel created for Design Time.");
+            // Poti adauga date mock aici pentru a vedea ceva in designer
+            // Email = "test@example.com";
+            // Password = "password";
+            // ErrorMessage = "Acesta este un mesaj de eroare de design time.";
+        }
+
+
+        // Constructorul principal - folosit la RULARE
         public LoginViewModel(UserService userService, MainViewModel mainViewModel)
         {
-            // Verificări pentru null pentru a evita ArgumentNullException
             _userService = userService ?? throw new ArgumentNullException(nameof(userService));
             _mainViewModel = mainViewModel ?? throw new ArgumentNullException(nameof(mainViewModel));
 
-            // Inițializarea command-urilor
-            // LoginCommand este initializat ca RelayCommand, chiar daca proprietatea este de tip ICommand
+            // Initializeaza command-urile
             LoginCommand = new RelayCommand(ExecuteLogin, CanExecuteLogin);
-            NavigateToRegisterCommand = new RelayCommand(ExecuteNavigateToRegister);
-
-            // Inițial, șterge orice mesaj de eroare
-            ErrorMessage = string.Empty;
+            // ShowRegisterCommand este acum INITIALIZAT
+            ShowRegisterCommand = new RelayCommand(ExecuteShowRegister);
+            ContinueAsGuestCommand = new RelayCommand(ExecuteContinueAsGuest); // Initializeaza noul command
         }
 
-        // Logica pentru command-ul de Login
+        // --- Metode pentru Command-uri ---
+
+        // Metoda de executie pentru LoginCommand (async)
         private async void ExecuteLogin(object parameter)
         {
-            ErrorMessage = string.Empty; // Șterge mesajul anterior de eroare
-
-            // Validare simplă
-            if (string.IsNullOrWhiteSpace(Email) || string.IsNullOrWhiteSpace(Password))
+            ErrorMessage = string.Empty; // Curata mesajele anterioare
+            try
             {
-                ErrorMessage = "Vă rugăm introduceți email-ul și parola.";
-                return;
+                // Apeleaza serviciul de autentificare
+                var user = await _userService.LoginAsync(Email, Password);
+
+                if (user != null)
+                {
+                    // Autentificare reusita
+                    // Seteaza utilizatorul autentificat in MainViewModel si navigheaza
+                    _mainViewModel.SetLoggedInUser(user);
+                }
+                else
+                {
+                    // Autentificare esuata
+                    ErrorMessage = "Autentificare esuata. Verifica email-ul si parola.";
+                }
             }
-
-            // Apelează serviciul de utilizatori pentru a încerca autentificarea
-            // Metoda LoginAsync este acum disponibilă în UserService
-            User loggedInUser = await _userService.LoginAsync(Email, Password);
-
-            if (loggedInUser != null)
+            catch (Exception ex)
             {
-                // Autentificare reușită
-                _mainViewModel.SetLoggedInUser(loggedInUser);
-                // Navighează către dashboard sau alt view principal
-                // _mainViewModel.ShowDashboardView(); // Va trebui să implementezi această metodă în MainViewModel
-                ErrorMessage = "Autentificare reușită!"; // Mesaj temporar până la implementarea navigării
-            }
-            else
-            {
-                // Autentificare eșuată
-                ErrorMessage = "Email sau parolă incorectă.";
+                // Gestioneaza erorile (ex: probleme de conexiune la baza de date)
+                ErrorMessage = $"A aparut o eroare la autentificare: {ex.Message}";
+                Debug.WriteLine($"Login Error: {ex.Message}");
             }
         }
 
-        // Determină dacă command-ul de Login poate fi executat
+        // Metoda CanExecute pentru LoginCommand (activ doar daca email si parola sunt completate)
         private bool CanExecuteLogin(object parameter)
         {
-            // Command-ul poate fi executat doar dacă ambele câmpuri nu sunt goale
-            return !string.IsNullOrWhiteSpace(Email) && !string.IsNullOrWhiteSpace(Password);
+            return !string.IsNullOrEmpty(Email) && !string.IsNullOrEmpty(Password);
         }
 
-        // Logica pentru command-ul de navigare către Register
-        private void ExecuteNavigateToRegister(object parameter)
+        // Metoda de executie pentru ShowRegisterCommand - DECOMENTATA
+        private void ExecuteShowRegister(object parameter)
         {
-            _mainViewModel.ShowRegisterView(); // Apelează metoda din MainViewModel pentru a schimba view-ul
+            _mainViewModel.ShowRegisterView(); // Apeleaza metoda de navigare din MainViewModel
+        }
+
+
+        // Metoda de executie pentru ContinueAsGuestCommand
+        private void ExecuteContinueAsGuest(object parameter)
+        {
+            // Apeleaza metoda din MainViewModel pentru a arata dashboard-ul clientului ca invitat
+            _mainViewModel.ShowGuestClientDashboardView();
         }
     }
 }

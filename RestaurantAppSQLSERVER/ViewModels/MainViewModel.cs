@@ -31,7 +31,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
             }
         }
 
-        // To store the logged-in user
+        // To store the logged-in user (will be null for guest)
         public User LoggedInUser { get; private set; }
 
         public MainViewModel()
@@ -51,6 +51,8 @@ namespace RestaurantAppSQLSERVER.ViewModels
 
         public void ShowLoginView()
         {
+            // La revenirea la login, asigura-te ca userul autentificat este null
+            LoggedInUser = null;
             CurrentViewModel = new LoginViewModel(_userService, this);
         }
 
@@ -59,7 +61,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
             // Va trebui să implementezi RegisterViewModel și să-l instanțiezi aici
             // CurrentViewModel = new RegisterViewModel(_userService, this);
             // Placeholder temporar:
-            // CurrentViewModel = new PlaceholderViewModel("Register View"); // Creează o clasă PlaceholderViewModel dacă vrei să testezi navigarea
+            CurrentViewModel = new RegisterViewModel(_userService, this);
         }
 
         // Metoda pentru a arata Dashboard-ul Angajatului
@@ -69,7 +71,6 @@ namespace RestaurantAppSQLSERVER.ViewModels
             if (LoggedInUser != null && LoggedInUser.Rol == UserRole.Angajat)
             {
                 // Initializeaza EmployeeDashboardViewModel cu TOATE serviciile necesare
-                // FIX: Adauga 'this' ca ultim argument pentru a trece referinta la MainViewModel
                 CurrentViewModel = new EmployeeDashboardViewModel(_dishService, _categoryService, _allergenService, _menuItemService, _orderService, this /*, other services */);
             }
             else
@@ -79,11 +80,22 @@ namespace RestaurantAppSQLSERVER.ViewModels
             }
         }
 
-        // Metoda pentru a arata Dashboard-ul Clientului (va trebui implementata)
-        public void ShowClientDashboardView()
+        // Metoda pentru a arata Dashboard-ul Clientului (pentru utilizatori autentificati)
+        public void ShowClientDashboardView(User user)
         {
-            // Implementeaza ClientDashboardViewModel si View
+            // Seteaza utilizatorul autentificat
+            LoggedInUser = user;
+            // Creeaza ClientDashboardViewModel, pasand userul autentificat (NU este invitat)
             CurrentViewModel = new ClientDashboardViewModel(LoggedInUser, _categoryService, _dishService, _menuItemService, this);
+        }
+
+        // Metoda pentru a arata Dashboard-ul Clientului (pentru invitati)
+        public void ShowGuestClientDashboardView()
+        {
+            // Seteaza utilizatorul autentificat la null pentru sesiunea de invitat
+            LoggedInUser = null;
+            // Creeaza ClientDashboardViewModel, pasand null pentru user (ESTE invitat)
+            CurrentViewModel = new ClientDashboardViewModel(null, _categoryService, _dishService, _menuItemService, this);
         }
 
 
@@ -97,14 +109,14 @@ namespace RestaurantAppSQLSERVER.ViewModels
                 {
                     ShowEmployeeDashboardView();
                 }
-                else // Rolul este Client sau altceva
+                else // Rolul este Client
                 {
-                    ShowClientDashboardView(); // Navigheaza la dashboard client
+                    ShowClientDashboardView(LoggedInUser); // Navigheaza la dashboard client autentificat
                 }
             }
             else
             {
-                // Daca userul este null (login esuat), ramane pe LoginView (gestionat in LoginViewModel)
+                // Daca userul este null (login esuat sau logout), ramane pe LoginView (gestionat in LoginViewModel)
             }
         }
 

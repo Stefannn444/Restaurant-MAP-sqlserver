@@ -12,16 +12,33 @@ using System.ComponentModel; // Adaugat pentru IPropertyChangedEvent
 
 namespace RestaurantAppSQLSERVER.ViewModels
 {
-    // ViewModel principal pentru Dashboard-ul Clientului
+    // ViewModel principal pentru Dashboard-ul Clientului (si Invitatului)
     public class ClientDashboardViewModel : ViewModelBase
     {
         // Colectie pentru afisarea meniului grupat pe categorii
-        // Fiecare CategoryDisplayWrapper va contine o Categorie si o lista de DisplayMenuItem (Dish sau MenuItem)
-        // FIX: Schimba tipul colectiei la ObservableCollection<CategoryDisplayWrapper>
         public ObservableCollection<CategoryDisplayWrapper> MenuCategories { get; set; }
 
+        // Proprietate pentru a indica daca sesiunea este de invitat
+        private bool _isGuest;
+        public bool IsGuest
+        {
+            get => _isGuest;
+            set
+            {
+                _isGuest = value;
+                OnPropertyChanged(nameof(IsGuest));
+                // Notifica UI-ul ca starea de invitat s-a schimbat, afectand vizibilitatea/starea unor controale
+                CommandManager.InvalidateRequerySuggested();
+                // Notificare explicita pentru command-uri care depind de IsGuest (ex: ShowClientOrdersCommand, AddToCartCommand)
+                // Verifica daca ShowClientOrdersCommand NU este null inainte de a apela RaiseCanExecuteChanged
+                ((RelayCommand)ShowClientOrdersCommand)?.RaiseCanExecuteChanged();
+                // TODO: Adauga RaiseCanExecuteChanged() pentru AddToCartCommand cand il implementezi
+                // ((RelayCommand)AddToCartCommand)?.RaiseCanExecuteChanged();
+            }
+        }
 
-        // Proprietate pentru a afisa informatii despre utilizatorul autentificat
+
+        // Proprietate pentru a afisa informatii despre utilizatorul autentificat (va fi null pentru invitati)
         private User _loggedInUser;
         public User LoggedInUser
         {
@@ -30,6 +47,9 @@ namespace RestaurantAppSQLSERVER.ViewModels
             {
                 _loggedInUser = value;
                 OnPropertyChanged(nameof(LoggedInUser));
+                // Actualizeaza si starea IsGuest pe baza LoggedInUser
+                // Acest lucru va apela setter-ul IsGuest, care acum verifica daca command-urile sunt initializate
+                IsGuest = (value == null);
             }
         }
 
@@ -58,19 +78,25 @@ namespace RestaurantAppSQLSERVER.ViewModels
         // Command-uri pentru navigare (ex: catre sectiunea Comenzi Client)
         public ICommand ShowClientOrdersCommand { get; }
         public ICommand LogoutCommand { get; } // Command pentru Logout
+        // Noul Command pentru a naviga inapoi la Login (pentru invitati)
+        public ICommand ShowLoginCommand { get; }
+
+        // TODO: Adauga ICommand pentru adaugare in cos (AddToCartCommand)
 
 
         private readonly CategoryService _categoryService;
         private readonly DishService _dishService;
         private readonly MenuItemService _menuItemService; // Serviciul principal pentru MenuItem (Meniu)
-        private readonly MainViewModel _mainViewModel; // Referinta catre MainViewModel pentru navigare/logout
+        private readonly MainViewModel _mainViewModel; // Referenta catre MainViewModel pentru navigare/logout
 
 
         // Constructor PUBLIC FARA PARAMETRI - DOAR PENTRU DESIGN TIME
         public ClientDashboardViewModel() : this(null, null, null, null, null)
         {
+            Debug.WriteLine("ClientDashboardViewModel created for Design Time.");
             // Poti adauga aici date mock pentru a vedea ceva in designer
-            // LoggedInUser = new User { Username = "Client Mock" };
+            // LoggedInUser = new User { Nume = "Client Mock" }; // Foloseste Nume conform entitatii User
+            // IsGuest = false; // Seteaza starea pentru design-time daca vrei sa vezi UI-ul de client
             // Initializeaza colectia pentru design time
             // MenuCategories = new ObservableCollection<CategoryDisplayWrapper>();
             // MenuCategories.Add(new CategoryDisplayWrapper(new Category { Name = "Mock Categorie 1" }));
@@ -81,7 +107,6 @@ namespace RestaurantAppSQLSERVER.ViewModels
         // Constructorul principal - folosit la RULARE
         public ClientDashboardViewModel(User loggedInUser, CategoryService categoryService, DishService dishService, MenuItemService menuItemService, MainViewModel mainViewModel)
         {
-            LoggedInUser = loggedInUser ?? throw new ArgumentNullException(nameof(loggedInUser));
             _categoryService = categoryService ?? throw new ArgumentNullException(nameof(categoryService));
             _dishService = dishService ?? throw new ArgumentNullException(nameof(dishService));
             _menuItemService = menuItemService ?? throw new ArgumentNullException(nameof(menuItemService)); // Injecteaza MenuItemService
@@ -89,16 +114,23 @@ namespace RestaurantAppSQLSERVER.ViewModels
 
 
             // Initializeaza colectia
-            // FIX: Initializeaza colectia cu tipul corect
             MenuCategories = new ObservableCollection<CategoryDisplayWrapper>();
 
-            // Initializeaza command-urile
-            ShowClientOrdersCommand = new RelayCommand(ExecuteShowClientOrders);
+            // Initializeaza command-urile PRIMA DATA
+            // Adauga CanExecute pentru a dezactiva butonul "Comenzile Mele" pentru invitati
+            ShowClientOrdersCommand = new RelayCommand(ExecuteShowClientOrders, CanExecuteShowClientOrders);
             LogoutCommand = new RelayCommand(ExecuteLogout);
+            // Initializeaza noul command pentru a reveni la Login
+            ShowLoginCommand = new RelayCommand(ExecuteShowLogin);
+            // TODO: Initializeaza AddToCartCommand cu CanExecute
+            // AddToCartCommand = new RelayCommand(ExecuteAddToCart, CanExecuteAddToCart);
 
+
+            // Acum seteaza utilizatorul autentificat (aceasta va apela setter-ul IsGuest FARA eroare)
+            LoggedInUser = loggedInUser;
+            // Starea IsGuest este setata automat in setter-ul LoggedInUser
 
             // Incarca datele meniului la initializarea ViewModel-ului
-            // Folosim Task.Run pentru a nu bloca thread-ul UI
             Task.Run(async () => await LoadMenuData());
         }
 
@@ -111,10 +143,45 @@ namespace RestaurantAppSQLSERVER.ViewModels
             ErrorMessage = "Sectiunea Comenzi Client nu este inca implementata.";
         }
 
+        // Metoda CanExecute pentru ShowClientOrdersCommand (dezactivat pentru invitati)
+        private bool CanExecuteShowClientOrders(object parameter)
+        {
+            // Command-ul este activ doar daca utilizatorul este autentificat (NU este invitat)
+            return !IsGuest;
+        }
+
+
         private void ExecuteLogout(object parameter)
         {
             _mainViewModel.Logout(); // Apeleaza metoda Logout din MainViewModel
         }
+
+        // Metoda de executie pentru noul Command ShowLoginCommand (pentru invitati)
+        private void ExecuteShowLogin(object parameter)
+        {
+            _mainViewModel.ShowLoginView(); // Apeleaza metoda de navigare din MainViewModel
+        }
+
+
+        // TODO: Implementeaza ExecuteAddToCart(object parameter) si CanExecuteAddToCart(object parameter)
+        /*
+        private void ExecuteAddToCart(object parameter)
+        {
+            // Logica de adaugare in cos
+            if (parameter is DisplayMenuItem item)
+            {
+                // TODO: Adauga item-ul in cos (o colectie in ViewModel sau un alt serviciu)
+                Debug.WriteLine($"Added {item.Name} to cart.");
+                SuccessMessage = $"{item.Name} a fost adaugat in cos.";
+            }
+        }
+
+        private bool CanExecuteAddToCart(object parameter)
+        {
+             // Command-ul este activ doar daca NU este invitat
+             return !IsGuest;
+        }
+        */
 
 
         // --- Metoda pentru incarcarea datelor meniului ---
@@ -147,9 +214,6 @@ namespace RestaurantAppSQLSERVER.ViewModels
                 // 3. Incarca toate Meniurile (MenuItem) - asigura-te ca serviciul le include si Categoria si MenuItemDishes (si Dish-urile din ele daca este necesar)
                 var menuItems = await _menuItemService.GetAllMenuItemsAsync(); // Asigura-te ca GetAllMenuItemsAsync include Category
 
-
-                // Curata colectia existenta
-                // MenuCategories.Clear(); // Nu mai este necesar sa curatam aici, cream o colectie noua
 
                 // Organizeaza Preparatele si Meniurile pe categorii
                 var categoriesWithItems = new ObservableCollection<CategoryDisplayWrapper>();
