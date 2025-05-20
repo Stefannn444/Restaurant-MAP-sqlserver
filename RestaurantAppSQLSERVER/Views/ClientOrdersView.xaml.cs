@@ -15,9 +15,6 @@ using System.Windows.Shapes;
 
 namespace RestaurantAppSQLSERVER.Views
 {
-    /// <summary>
-    /// Interaction logic for ClientOrdersView.xaml
-    /// </summary>
     public partial class ClientOrdersView : UserControl
     {
         public ClientOrdersView()

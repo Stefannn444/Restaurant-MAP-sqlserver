@@ -15,9 +15,6 @@ using System.Windows.Shapes;
 
 namespace RestaurantAppSQLSERVER.Views
 {
-    /// <summary>
-    /// Interaction logic for AllergenCrudView.xaml
-    /// </summary>
     public partial class AllergenCrudView : UserControl
     {
         public AllergenCrudView()

@@ -15,17 +15,12 @@ namespace RestaurantAppSQLSERVER.Data
         public RestaurantDbContext CreateDbContext(string[] args)
         {
             var configuration = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory()) // folderul proiectului
+                .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json", optional: true)
                 .Build();
 
             var optionsBuilder = new DbContextOptionsBuilder<RestaurantDbContext>();
-
-            // Dacă vrei să iei conexiunea din App.config, va trebui să citești diferit (mai jos)
             var connectionString = configuration.GetConnectionString("DefaultConnection");
-
-            // Dacă nu poți citi din appsettings.json, poți pune direct conexiunea aici temporar:
-            // var connectionString = "Server=(localdb)\\MSSQLLocalDB;Database=RestaurantDb;Trusted_Connection=True;";
 
             optionsBuilder.UseSqlServer(connectionString);
 

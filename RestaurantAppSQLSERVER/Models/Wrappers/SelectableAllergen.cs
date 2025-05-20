@@ -1,5 +1,5 @@
 ﻿using RestaurantAppSQLSERVER.Models.Entities;
-using RestaurantAppSQLSERVER.ViewModels; // Assuming ViewModelBase is in this namespace
+using RestaurantAppSQLSERVER.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,8 +8,7 @@ using System.Threading.Tasks;
 
 namespace RestaurantAppSQLSERVER.Models.Wrappers
 {
-    // Wrapper class for Allergen to add an IsSelected property for UI binding
-    public class SelectableAllergen : ViewModelBase // Inheriting ViewModelBase for OnPropertyChanged
+    public class SelectableAllergen : ViewModelBase
     {
         public Allergen Allergen { get; set; }
 
@@ -21,20 +20,13 @@ namespace RestaurantAppSQLSERVER.Models.Wrappers
             {
                 _isSelected = value;
                 OnPropertyChanged(nameof(IsSelected));
-                // Optionally notify commands that depend on allergen selection changes
-                // This might be needed if Save button state depends on allergen selection
-                // System.Windows.Input.CommandManager.InvalidateRequerySuggested();
             }
         }
-
-        // Constructor
         public SelectableAllergen(Allergen allergen, bool isSelected = false)
         {
             Allergen = allergen ?? throw new ArgumentNullException(nameof(allergen));
-            _isSelected = isSelected; // Initialize the selected state
+            _isSelected = isSelected;
         }
-
-        // Override ToString to display the allergen name in UI controls if needed
         public override string ToString()
         {
             return Allergen?.Name ?? string.Empty;

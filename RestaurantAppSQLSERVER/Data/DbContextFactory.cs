@@ -21,8 +21,6 @@ namespace RestaurantAppSQLSERVER.Data
                 .Build();
 
             _connectionString = configuration.GetConnectionString("DefaultConnection");
-
-            // Fallback if configuration fails
             if (string.IsNullOrEmpty(_connectionString))
             {
                 _connectionString = "Server=(localdb)\\MSSQLLocalDB;Database=RestaurantDb;Trusted_Connection=True;";

@@ -18,7 +18,6 @@ namespace RestaurantAppSQLSERVER.Converters
                 return Visibility.Collapsed;
             }
 
-            // Compara valoarea cu parametrul (care ar trebui sa fie valoarea enum dorita)
             if (value.Equals(parameter))
             {
                 return Visibility.Visible;
@@ -31,7 +30,6 @@ namespace RestaurantAppSQLSERVER.Converters
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            // Convertirea inversa nu este necesara pentru acest scenariu
             throw new NotImplementedException();
         }
     }

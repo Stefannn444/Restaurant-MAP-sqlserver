@@ -15,9 +15,6 @@ using System.Windows.Shapes;
 
 namespace RestaurantAppSQLSERVER.Views
 {
-    /// <summary>
-    /// Interaction logic for RegisterView.xaml
-    /// </summary>
     public partial class RegisterView : UserControl
     {
         public RegisterView()

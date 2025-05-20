@@ -16,7 +16,7 @@ namespace RestaurantAppSQLSERVER.Converters
             {
                 return !booleanValue;
             }
-            return value; // Returneaza valoarea originala daca nu este boolean
+            return value; 
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -25,7 +25,7 @@ namespace RestaurantAppSQLSERVER.Converters
             {
                 return !booleanValue;
             }
-            return value; // Returneaza valoarea originala daca nu este boolean
+            return value; 
         }
     }
 }

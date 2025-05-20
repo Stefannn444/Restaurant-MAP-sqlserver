@@ -4,10 +4,8 @@
 
 namespace RestaurantAppSQLSERVER.Migrations
 {
-    /// <inheritdoc />
     public partial class SubtotalOrder : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropForeignKey(
@@ -66,12 +64,6 @@ namespace RestaurantAppSQLSERVER.Migrations
                 keyValue: 1,
                 columns: new[] { "Email", "Nr_tel", "Nume", "Prenume" },
                 values: new object[] { "client@exemplu.com", "0700000000", "Client", "Exemplu" });
-
-            /*migrationBuilder.InsertData(
-                table: "Users",
-                columns: new[] { "Id", "Adresa", "Email", "Nr_tel", "Nume", "Parola", "Prenume", "Rol" },
-                values: new object[] { 2, "Sediul Restaurantului", "angajat@exemplu.com", "0711111111", "Angajat", "parolaangajat", "Restaurant", 1 });
-*/
             migrationBuilder.AddForeignKey(
                 name: "FK_DishAllergens_Allergens_AllergenId",
                 table: "DishAllergens",
@@ -96,8 +88,6 @@ namespace RestaurantAppSQLSERVER.Migrations
                 principalColumn: "Id",
                 onDelete: ReferentialAction.Restrict);
         }
-
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropForeignKey(

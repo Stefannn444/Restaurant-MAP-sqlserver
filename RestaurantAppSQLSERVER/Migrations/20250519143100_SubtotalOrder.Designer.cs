@@ -15,7 +15,6 @@ namespace RestaurantAppSQLSERVER.Migrations
     [Migration("20250519143100_SubtotalOrder")]
     partial class SubtotalOrder
     {
-        /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618

@@ -15,7 +15,6 @@ namespace RestaurantAppSQLSERVER.Migrations
     [Migration("20250518105904_InitialCreate")]
     partial class InitialCreate
     {
-        /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618

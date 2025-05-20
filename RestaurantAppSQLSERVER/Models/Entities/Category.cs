@@ -11,9 +11,7 @@ namespace RestaurantAppSQLSERVER.Models.Entities
     {
         public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty; // Descriere optionala
-
-        // Proprietati de navigare catre preparatele si meniurile din aceasta categorie
+        public string Description { get; set; } = string.Empty;
         public ICollection<Dish> Dishes { get; set; } = new List<Dish>();
         public ICollection<MenuItem> MenuItems { get; set; } = new List<MenuItem>();
     }
