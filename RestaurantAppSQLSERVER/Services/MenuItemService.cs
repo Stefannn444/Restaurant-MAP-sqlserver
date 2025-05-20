@@ -61,6 +61,7 @@ namespace RestaurantAppSQLSERVER.Services
                             context.Dishes.Attach(menuItemDish.Dish);
                         }
                         // MenuItemDish-urile noi vor fi adaugate automat cand adaugi MenuItem
+                        // Cantitatea (Quantity) ar trebui sa fie deja setata corect in ViewModel la crearea menuItemDish
                     }
                 }
 
@@ -99,37 +100,68 @@ namespace RestaurantAppSQLSERVER.Services
 
 
                 // --- Gestionarea relatiei Many-to-Many cu Preparate (prin MenuItemDish) ---
-                // Compara MenuItemDish-urile existente cu cele noi si adauga/sterge legaturile din tabela MenuItemDish
+                // Compara MenuItemDish-urile existente cu cele noi si adauga/sterge/actualizeaza legaturile din tabela MenuItemDish
 
-                // MenuItemDish-urile existente in baza de date pentru acest meniu (dupa DishId)
-                var existingMenuItemDishDishIds = existingMenuItem.MenuItemDishes.Select(mid => mid.DishId).ToList();
+                // Creeaza dictionare pentru acces rapid
+                var existingMenuItemDishesDict = existingMenuItem.MenuItemDishes.ToDictionary(mid => mid.DishId);
+                var newMenuItemDishesDict = menuItem.MenuItemDishes?.ToDictionary(mid => mid.DishId) ?? new Dictionary<int, MenuItemDish>();
 
-                // MenuItemDish-urile noi (din obiectul 'menuItem' primit, presupunand ca MenuItem.MenuItemDishes este populat corect in ViewModel)
-                var newMenuItemDishDishIds = menuItem.MenuItemDishes.Select(mid => mid.DishId).ToList();
 
-                // DishId-uri de adaugat (care sunt in newMenuItemDishDishIds dar nu in existingMenuItemDishDishIds)
-                var dishIdsToAdd = newMenuItemDishDishIds.Except(existingMenuItemDishDishIds).ToList();
+                // Lista de DishId-uri din meniul actualizat
+                var newDishIds = newMenuItemDishesDict.Keys.ToList();
 
-                // DishId-uri de sters (care sunt in existingMenuItemDishDishIds dar nu in newMenuItemDishDishIds)
-                var dishIdsToDelete = existingMenuItemDishDishIds.Except(newMenuItemDishDishIds).ToList();
+                // Lista de DishId-uri din meniul existent in baza de date
+                var existingDishIds = existingMenuItemDishesDict.Keys.ToList();
+
+                // DishId-uri de adaugat (care sunt in newDishIds dar nu in existingDishIds)
+                var dishIdsToAdd = newDishIds.Except(existingDishIds).ToList();
+
+                // DishId-uri de sters (care sunt in existingDishIds dar nu in newDishIds)
+                var dishIdsToDelete = existingDishIds.Except(newDishIds).ToList();
+
+                // DishId-uri de actualizat (care sunt in ambele liste)
+                var dishIdsToUpdate = existingDishIds.Intersect(newDishIds).ToList();
+
 
                 // Adauga noile legaturi in MenuItemDish
                 foreach (var dishId in dishIdsToAdd)
                 {
-                    // Creeaza un nou MenuItemDish
-                    // Quantity ar trebui sa fie setat in ViewModel daca este relevant la adaugare
-                    existingMenuItem.MenuItemDishes.Add(new MenuItemDish { MenuItemId = existingMenuItem.Id, DishId = dishId, Quantity = 1 }); // Seteaza Quantity implicit 1 sau 0
+                    // Creeaza un nou MenuItemDish folosind datele din meniul primit
+                    // Quantity ar trebui sa fie setat corect in ViewModel la crearea menuItemDish
+                    if (newMenuItemDishesDict.TryGetValue(dishId, out var newMenuItemDish))
+                    {
+                        existingMenuItem.MenuItemDishes.Add(new MenuItemDish
+                        {
+                            MenuItemId = existingMenuItem.Id,
+                            DishId = dishId,
+                            Quantity = newMenuItemDish.Quantity // Seteaza cantitatea din obiectul nou
+                        });
+                    }
                 }
 
                 // Sterge legaturile care nu mai exista
                 foreach (var dishId in dishIdsToDelete)
                 {
-                    var itemToDelete = existingMenuItem.MenuItemDishes.FirstOrDefault(mid => mid.DishId == dishId);
-                    if (itemToDelete != null)
+                    if (existingMenuItemDishesDict.TryGetValue(dishId, out var itemToDelete))
                     {
                         context.Remove(itemToDelete); // Marcheaza MenuItemDish pentru stergere
                     }
                 }
+
+                // NOU: Actualizeaza Cantitatea pentru legaturile MenuItemDish care exista deja
+                foreach (var dishId in dishIdsToUpdate)
+                {
+                    // Gaseste legatura existenta si legatura noua
+                    if (existingMenuItemDishesDict.TryGetValue(dishId, out var existingMenuItemDish) &&
+                        newMenuItemDishesDict.TryGetValue(dishId, out var newMenuItemDish))
+                    {
+                        // Actualizeaza cantitatea pe obiectul existent din context
+                        existingMenuItemDish.Quantity = newMenuItemDish.Quantity;
+                        // EF Core va detecta schimbarea si o va salva
+                    }
+                }
+
+
                 // --- Sfarsit gestionare MenuItemDish ---
 
                 await context.SaveChangesAsync();

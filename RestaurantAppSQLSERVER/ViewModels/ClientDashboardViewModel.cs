@@ -12,6 +12,7 @@ using System.ComponentModel; // Adaugat pentru IPropertyChangedEvent
 using Microsoft.EntityFrameworkCore; // Necesara pentru FromSqlInterpolated
 using Microsoft.Extensions.Configuration; // Necesara pentru configurare (appsettings.json)
 using System.Windows; // Adaugat pentru App.Current.Dispatcher
+using System.Text.RegularExpressions; // Adaugat pentru parsarea cantitatii
 
 
 namespace RestaurantAppSQLSERVER.ViewModels
@@ -25,7 +26,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
         // Colectie privata pentru a pastra meniul complet nefiltrat
         private List<CategoryDisplayWrapper> _fullMenuCategories;
 
-        // Colectie pentru alergeni (pentru filtrare)
+        // Colectie pentru alergeni (pour filtration)
         public ObservableCollection<Allergen> Allergens { get; set; }
 
 
@@ -314,7 +315,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
             // --- Initializeaza Command-urile pentru COS si Comanda ---
             AddToCartCommand = new RelayCommand(ExecuteAddToCart, CanExecuteAddToCart); // Adaugat
             RemoveFromCartCommand = new RelayCommand(ExecuteRemoveFromCart); // Adaugat (CanExecute poate fi adaugat ulterior)
-            PlaceOrderCommand = new RelayCommand(ExecutePlaceOrder, CanExecutePlaceOrder); // Adaugat
+            PlaceOrderCommand = new RelayCommand(async (param) => await ExecutePlaceOrder(param), CanExecutePlaceOrder); // Adaugat (folosim async (param) => await ...)
             // --- Initializeaza Command-ul pentru cautare ---
             SearchCommand = new RelayCommand(ExecuteSearch);
 
@@ -367,13 +368,13 @@ namespace RestaurantAppSQLSERVER.ViewModels
             _mainViewModel.Logout(); // Apeleaza metoda Logout din MainViewModel
         }
 
-        // Metoda de executie pentru noul Command ShowLoginCommand (pentru invitati)
+        // Metoda de executie pentru noul Command ShowLoginCommand (pour invitati)
         private void ExecuteShowLogin(object parameter)
         {
             _mainViewModel.ShowLoginView(); // Apeleaza metoda de navigare din MainViewModel
         }
 
-        // Metoda CanExecute pentru ShowLoginCommand (activ doar pentru invitati)
+        // Metoda CanExecute pentru ShowLoginCommand (activ doar pour invitati)
         private bool CanExecuteShowLogin(object parameter)
         {
             // Command-ul este activ doar daca utilizatorul ESTE invitat
@@ -431,7 +432,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
             }
         }
 
-        // Metoda CanExecute pentru AddToCartCommand (dezactivat pentru invitati)
+        // Metoda CanExecute pentru AddToCartCommand (dezactivat pour invitati)
         private bool CanExecuteAddToCart(object parameter)
         {
             // Command-ul este activ doar daca NU este invitat
@@ -464,7 +465,7 @@ namespace RestaurantAppSQLSERVER.ViewModels
         }
 
         // Metoda de executie pentru PlaceOrderCommand (async)
-        private async void ExecutePlaceOrder(object parameter)
+        private async Task ExecutePlaceOrder(object parameter) // Schimbat in Task pentru a permite await in constructor
         {
             ErrorMessage = string.Empty; // Curata mesajele de eroare
             SuccessMessage = string.Empty; // Curata mesajele de succes
@@ -490,14 +491,35 @@ namespace RestaurantAppSQLSERVER.ViewModels
                 // CalculateDiscountAndTransport(); // Nu mai apelam aici, este apelat din setter-ul CartSubtotal si LoggedInUser
 
                 // 2. Pregateste lista de OrderItemData pentru SP din itemii din cos
-                var orderItemsData = ShoppingCart.Select(cartItem => new OrderItemData
+                var orderItemsData = ShoppingCart.Select(cartItem =>
                 {
-                    ItemId = cartItem.Item.ItemId,
-                    ItemType = cartItem.Item.ItemType,
-                    Quantity = cartItem.Quantity,
-                    UnitPrice = cartItem.Item.ItemPrice, // Folosim pretul itemului la momentul adaugarii in cos
-                    ItemName = cartItem.Item.ItemName // Folosim numele itemului la momentul adaugarii in cos
+                    // NOU: Calculeaza cantitatea corecta de trimis catre SP in functie de tipul itemului
+                    int quantityToSend;
+
+                    if (cartItem.Item.ItemType == "Dish")
+                    {
+                        // Pentru Dish, Quantity in SP trebuie sa fie gramajul total comandat
+                        // Extragem gramajul unitar din QuantityDisplay si il inmultim cu cantitatea din cos
+                        decimal unitGramage = ParseQuantityDisplay(cartItem.Item.QuantityDisplay);
+                        quantityToSend = (int)(unitGramage * cartItem.Quantity); // Cast la int (atentie la precizie)
+                    }
+                    else // ItemType == "MenuItem"
+                    {
+                        // Pentru MenuItem, Quantity in SP este numarul de meniuri comandate
+                        quantityToSend = cartItem.Quantity;
+                    }
+
+
+                    return new OrderItemData
+                    {
+                        ItemId = cartItem.Item.ItemId,
+                        ItemType = cartItem.Item.ItemType,
+                        Quantity = quantityToSend, // <-- FOLOSIM CANTITATEA CALCULATA AICI
+                        UnitPrice = cartItem.Item.ItemPrice, // Folosim pretul itemului la momentul adaugarii in cos
+                        ItemName = cartItem.Item.ItemName // Folosim numele itemului la momentul adaugarii in cos
+                    };
                 }).ToList();
+
 
                 // 3. Apeleaza OrderService pentru a plasa comanda folosind SP
                 var result = await _orderService.PlaceOrderAsync(
@@ -516,15 +538,21 @@ namespace RestaurantAppSQLSERVER.ViewModels
                     // CalculateDiscountAndTransport(); // Nu mai apelam aici
                     // CalculateFinalTotals(); // Nu mai apelam aici
                 }
+                // NOU: Gestionam cazul in care SP-ul returneaza un mesaj de eroare fara a arunca o exceptie
+                else
+                {
+                    ErrorMessage = result.Message; // Afiseaza mesajul returnat de procedura stocata
+                }
             }
             catch (Exception ex)
             {
+                // Acest bloc prinde exceptiile reale aruncate (ex: de catre THROW din SP)
                 ErrorMessage = $"A aparut o eroare la plasarea comenzii: {ex.Message}";
                 Debug.WriteLine($"Place Order Error: {ex.Message}");
             }
         }
 
-        // Metoda CanExecute pentru PlaceOrderCommand (dezactivat pentru invitati si cos gol)
+        // Metoda CanExecute pentru PlaceOrderCommand (dezactivat pour invitati si cos gol)
         private bool CanExecutePlaceOrder(object parameter)
         {
             // Command-ul este activ doar daca NU este invitat SI cosul NU este gol
@@ -852,6 +880,29 @@ namespace RestaurantAppSQLSERVER.ViewModels
                 OnPropertyChanged(nameof(MenuCategories)); // Notifica View-ul ca s-a schimbat colectia
             });
         }
+
+        // --- Metoda Helper pentru a parsa valoarea numerica din QuantityDisplay (ex: "250g" -> 250) ---
+        private decimal ParseQuantityDisplay(string quantityDisplay)
+        {
+            if (string.IsNullOrWhiteSpace(quantityDisplay))
+            {
+                return 0;
+            }
+
+            // Folosim Regex pentru a extrage doar cifrele (si eventual separatorul zecimal, daca exista)
+            var match = Regex.Match(quantityDisplay, @"(\d+(\.\d+)?)"); // Cauta unul sau mai multe cifre, optional urmate de . si cifre
+
+            if (match.Success && decimal.TryParse(match.Value, out decimal quantity))
+            {
+                return quantity;
+            }
+
+            // Daca parsarea esueaza, returneaza 0 si logheaza o eroare
+            Debug.WriteLine($"Warning: Could not parse numeric quantity from '{quantityDisplay}'");
+            return 0;
+        }
+
+
     }
 
     // Clasa helper pentru a reprezenta un item in cosul de cumparaturi
