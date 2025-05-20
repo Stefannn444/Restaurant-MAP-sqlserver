@@ -7,7 +7,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient; // NECESARA pentru SqlParameter
-using System.Data; // NECESARA pentru ParameterDirection
+using System.Data;
+using System.Diagnostics; // NECESARA pentru ParameterDirection
 
 namespace RestaurantAppSQLSERVER.Services
 {
@@ -132,7 +133,7 @@ namespace RestaurantAppSQLSERVER.Services
                 }
             }
         }
-
+        
         // Aici poti adauga si alte metode utile, cum ar fi GetCategoryByIdAsync etc.
     }
 }

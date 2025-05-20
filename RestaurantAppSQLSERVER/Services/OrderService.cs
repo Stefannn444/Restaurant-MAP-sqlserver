@@ -248,6 +248,49 @@ namespace RestaurantAppSQLSERVER.Services
             }
         }
 
+        public async Task<CancelOrderResult> CancelOrderAsync(int orderId, int userId)
+        {
+            using (var context = _dbContextFactory.CreateDbContext())
+            {
+                try
+                {
+                    // Cauta comanda dupa ID si verifica daca apartine utilizatorului
+                    var orderToCancel = await context.Orders
+                                                     .Where(o => o.Id == orderId && o.UserId == userId)
+                                                     .FirstOrDefaultAsync();
+
+                    // Verifica conditiile pentru anulare
+                    if (orderToCancel == null)
+                    {
+                        // Comanda nu a fost gasita sau nu apartine utilizatorului
+                        return new CancelOrderResult { IsSuccess = false, Message = "Comanda nu a fost gasita sau nu aveti permisiunea de a o anula." };
+                    }
+
+                    if (orderToCancel.Status != "Inregistrata"&&orderToCancel.Status!="0") // Compara cu starea "Inregistrata"
+                    {
+                        // Starea comenzii nu permite anularea
+                        return new CancelOrderResult { IsSuccess = false, Message = $"Comanda poate fi anulata doar daca este in starea \"Inregistrata\". Stare curenta: {orderToCancel.Status}" };
+                    }
+
+                    // Toate conditiile sunt indeplinite, actualizeaza starea comenzii la 'Anulata'
+                    orderToCancel.Status = "Anulata";
+
+                    // Salveaza modificarile in baza de date
+                    await context.SaveChangesAsync();
+
+                    // Returneaza rezultatul la succes
+                    return new CancelOrderResult { IsSuccess = true, Message = "Comanda a fost anulata cu succes." };
+                }
+                catch (Exception ex)
+                {
+                    // Gestioneaza erorile care pot aparea la accesarea bazei de date
+                    Debug.WriteLine($"Error cancelling order with EF Core: {ex.Message}");
+                    return new CancelOrderResult { IsSuccess = false, Message = $"A aparut o eroare la anularea comenzii: {ex.Message}" };
+                }
+            }
+        }
+       
+
         // Metoda helper pentru a genera un cod unic de comanda (exemplu simplificat)
         // Aceasta logica este acum in SP PlaceOrder, deci aceasta metoda nu mai este necesara aici pentru plasarea comenzii
         /*
@@ -281,4 +324,10 @@ namespace RestaurantAppSQLSERVER.Services
         public int? OrderId { get; set; } // ID-ul comenzii nou create (null in caz de esec)
         // Poti adauga si OrderCode aici daca vrei sa-l returnezi
     }
+}
+
+public class CancelOrderResult
+{
+    public bool IsSuccess { get; set; }
+    public string Message { get; set; }
 }
