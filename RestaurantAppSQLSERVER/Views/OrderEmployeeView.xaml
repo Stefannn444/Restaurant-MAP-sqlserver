@@ -43,7 +43,7 @@
                 Visibility="{Binding IsViewingDetails, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Cod Comanda" Binding="{Binding OrderCode}" Width="Auto"/>
-                    <DataGridTextColumn Header="Client" Binding="{Binding User.Username}" Width="*"/>
+                    <DataGridTextColumn Header="Client" Binding="{Binding User.Email}" Width="*"/>
                     <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="Auto"/>
                     <DataGridTextColumn Header="Pret Total" Binding="{Binding TotalPrice}" Width="Auto"/>
                     <DataGridTextColumn Header="Data Comanda" Binding="{Binding OrderDate}" Width="Auto"/>
@@ -81,7 +81,7 @@
                         <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding CurrentOrderDetails.OrderCode}" Margin="0,0,0,5"/>
 
                         <Label Grid.Row="2" Grid.Column="0" Content="Client:"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CurrentOrderDetails.User.Username}" Margin="0,0,0,5"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CurrentOrderDetails.User.Email}" Margin="0,0,0,5"/>
 
                         <Label Grid.Row="3" Grid.Column="0" Content="Data Comanda:"/>
                         <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding CurrentOrderDetails.OrderDate}" Margin="0,0,0,5"/>
